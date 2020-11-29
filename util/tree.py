@@ -46,7 +46,7 @@ class SegTree:
             # print(x, L, R)
             self.insert(1, L, R, x)
             self.query(L, R)
-        print(self.A)
+        # print(self.A)
 
     def query(self, L, R):
         self.A = []
