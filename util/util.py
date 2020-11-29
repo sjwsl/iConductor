@@ -33,7 +33,8 @@ def play_music(music, ins, volumes, paras):
     pygame.midi.init()
     # for _ in range(4):
     #     print(_, pygame.midi.get_device_info(_))
-    player = pygame.midi.Output(1)
+
+    player = pygame.midi.Output(16)
     player.set_instrument(i)
     try:
         music = song.song[music][ins]
@@ -80,10 +81,14 @@ class SliderFrame(wx.Frame):
         self.Center()
         self.call = call
         self.panel = wx.Panel(self)
-        self.slider = wx.Slider(self.panel, value=val, id=-1, minValue=1, maxValue=127, pos=(10, 20), size=(210, -1))
-        self.sl_txt = wx.StaticText(self.panel, -1, label=str(val), pos=(90, 50), size=(50, 25), style=wx.TE_CENTER)
-        self.min = wx.StaticText(self.panel, id=1, label='1', pos=(20, 50), size=(50, 25), style=wx.TE_LEFT)
-        self.max = wx.StaticText(self.panel, id=2, label='127', pos=(160, 50), size=(50, 25), style=wx.TE_RIGHT)
+        self.slider = wx.Slider(self.panel, value=val, id=-1,
+                                minValue=1, maxValue=127, pos=(10, 20), size=(210, -1))
+        self.sl_txt = wx.StaticText(
+            self.panel, -1, label=str(val), pos=(90, 50), size=(50, 25), style=wx.TE_CENTER)
+        self.min = wx.StaticText(self.panel, id=1, label='1', pos=(
+            20, 50), size=(50, 25), style=wx.TE_LEFT)
+        self.max = wx.StaticText(self.panel, id=2, label='127', pos=(
+            160, 50), size=(50, 25), style=wx.TE_RIGHT)
         self.sl_val = val
 
         self.slider.Bind(wx.EVT_SLIDER, self.slider_fun)
@@ -99,7 +104,8 @@ def _async_raise(tid, exc):
     tid = ctypes.c_long(tid)
     if not inspect.isclass(exc):
         exc = type(exc)
-    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exc))
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        tid, ctypes.py_object(exc))
     if res == 0:
         return
         # raise ValueError("invalid thread id")
@@ -110,6 +116,3 @@ def _async_raise(tid, exc):
 
 def stop_thread(thread):
     _async_raise(thread.ident, SystemExit)
-
-
-
