@@ -31,14 +31,14 @@ class initFrame(wx.Frame):
         self.paras = list()
         self.paras.append(1.0)
         self.paras.append(0.0)
-        self.volume['1_钢琴'] = 63
-        self.volume['1_小提琴'] = 63
+        self.volume['1_钢琴'] = 1
+        self.volume['1_立式钢琴'] = 1
         self.coords['1_钢琴'] = [int(np.arccos(32/np.sqrt(30**2+32**2))/np.pi*180 + 0.5), np.sqrt(30**2+32**2)]
-        self.coords['1_小提琴'] = [int(np.arccos(-62/np.sqrt(30**2+62**2))/np.pi*180 + 0.5), np.sqrt(30**2+62**2)]
+        self.coords['1_立式钢琴'] = [int(np.arccos(-62/np.sqrt(30**2+62**2))/np.pi*180 + 0.5), np.sqrt(30**2+62**2)]
 
         music_lst_1 = [' 所有', ]
         music_lst_2 = [' 天空之城', ]
-        self.instrs = {'钢琴': 1, '小提琴': 1}
+        self.instrs = {'钢琴': 1, '立式钢琴': 1}
         wx.StaticText(self, -1, label='设备 :', pos=(60, 120), size=(40, 30))
         wx.StaticText(self, -1, label='作者 :', pos=(60, 160), size=(60, 30))
         wx.StaticText(self, -1, label='曲目 :', pos=(60, 200), size=(60, 30))
@@ -92,7 +92,7 @@ class initFrame(wx.Frame):
         self.btn_4 = wx.Button(self, id=-1, label='中止', pos=(440, 113), size=(60, 30))
         self.btn_4.Bind(wx.EVT_LEFT_DOWN, self.term)
         self.conductor = wx.StaticText(self, -1, label='我', pos=(527, 550), size=(20, 20))  # (182, 530)
-        self.grp_s = [wx.StaticText(self, 0, label='1_小提琴', pos=(465, 520), size=(60, 20)),
+        self.grp_s = [wx.StaticText(self, 0, label='1_立式钢琴', pos=(465, 520), size=(60, 20)),
                       wx.StaticText(self, 1, label='1_钢琴', pos=(559, 520), size=(60, 20))]
         self.grp_n = 0
         for grp in self.grp_s:
@@ -106,6 +106,7 @@ class initFrame(wx.Frame):
         self.gau_1 = wx.Gauge(self, -1, 100, pos=(440, 297), size=(250, 20), style=wx.GA_HORIZONTAL)
         self.gau_2 = wx.Gauge(self, -1, 127, pos=(440, 337), size=(250, 20), style=wx.GA_HORIZONTAL)
         self.gauges, self.process, self.statics = [], [], []
+        self.ch_lst, self.ev_lst = None, None
         self.thread, self.serial = None, None
         self.btn_5, self.btn_6 = None, None
         self.angle = 90
@@ -119,13 +120,13 @@ class initFrame(wx.Frame):
         for static in self.statics:
             static.Destroy()
         self.gauges, self.statics = [], []
+        self.ch_lst, self.ev_lst = None, None
 
     def display(self):
         self.clear()
         instrs = list(self.volume)[self.instr_:self.instr_ + 6]
         for i, instr in enumerate(instrs):
-            self.statics.append(wx.StaticText(
-                self, id=i, label=instr, pos=(60, 380 + 40 * i), size=(60, 20)))
+            self.statics.append(wx.StaticText(self, id=i, label=instr, pos=(60, 380 + 40 * i), size=(60, 20)))
             self.gauges.append(wx.Gauge(self, id=i, range=127, pos=(130, 380 + 40 * i), size=(190, 20),
                                         style=wx.GA_SMOOTH))
         self.up_or_dn()
@@ -186,8 +187,7 @@ class initFrame(wx.Frame):
     def sld(self, event):
         grp = (self.cbb_5.GetValue()).strip()
         val = self.volume[grp]
-        frame = util.SliderFrame(
-            parent=None, fid=-1, val=val, call=self.callback)
+        frame = util.SliderFrame(parent=None, fid=-1, val=val, call=self.callback)
         frame.Show()
 
     def callback(self, val):
@@ -203,7 +203,7 @@ class initFrame(wx.Frame):
             num = 0
         grp = str(num + 1) + '_' + ins
         self.instrs[ins] = num + 1
-        self.volume[grp] = 63
+        self.volume[grp] = 1
         self.coords[grp] = [0, -1]
         self.cbb_5.Destroy()
         name = list(self.volume)[0]
@@ -256,30 +256,50 @@ class initFrame(wx.Frame):
         self.play_music()
         self.thread.Destroy()
         self.thread = None
+        self.ch_lst, self.ev_lst = None, None
 
     def play_pre(self, event):
-        self.term(event)
+        self.thread, self.serial = None, None
+        self.ch_lst, self.ev_lst = None, None
+        self.angle = 90
+        self.tree = None
+        self.instr_ = 0
+        print('play_pre.1')
         self.gau_1.SetValue(0)
+        print('play_pre.2')
         self.tree = tree.SegTree()
         self.tree.build(self.coords)
         self.tree.query(0, 180)
+        print('play_pre.3')
         # print(self.tree.A)
         music = (self.cbb_2.GetValue()).strip()
         events = song.songs[music]['events']
-        span = events[-1][0] / 800
+        list_1 = list(self.volume)
+        list_2 = []
+        for i, ev in enumerate(list(events)):
+            list_2.append([i, ev])
+        self.ch_lst = [ch for ch in list_2 if ch[1] in list_1]
+        self.ev_lst = []
+        for ch in self.ch_lst:
+            self.ev_lst = self.ev_lst + events[ch[1]]
+        self.ev_lst = sorted(self.ev_lst)
+        print(self.ev_lst)
+        span = self.ev_lst[-1][0] / 800
+        print('play_pre.4')
         self.thread = threading.Thread(target=self.mon, args=(span,))
+        print('play_pre.5')
 
     def play_music(self):
         pygame.midi.init()
         player = pygame.midi.Output(1)  # 16
-        player.set_instrument(40, channel=0)
-        player.set_instrument(0, channel=1)
+        print(self.ch_lst)
+        for ch in self.ch_lst:
+            ins = ch[1].split('_')[-1]
+            idx = util.instr_2[ins]-1
+            player.set_instrument(idx, channel=ch[0])
         last = 0
-        music = (self.cbb_2.GetValue()).strip()
-        events = song.songs[music]['events']
-        span = events[-1][0]
-        print(events[-1][0])
-        for event in events:
+        span = self.ev_lst[-1][0]
+        for event in self.ev_lst:
             # print(event)
             if event[0] > last:
                 time.sleep((event[0] - last) / 800)
@@ -289,7 +309,7 @@ class initFrame(wx.Frame):
             self.gau_2.SetValue(event[1])
 
     def mon(self, span):
-        self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
+        # self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
         t0, t1 = time.time(), 0.0
         tmp = []
         ini = dict()
@@ -304,21 +324,22 @@ class initFrame(wx.Frame):
                 except Exception:
                     pass
             t1 = time.time() - t0
-        self.angle = int((max(tmp) + min(tmp))/2)  # zhushi
+        # self.angle = int((max(tmp) + min(tmp))/2)  # zhushi
+        print('play_mon.1')
         o_lt, n_lt = list(self.volume), []
         k_di = dict()
         t0 = time.time()
-        self.paras[1], t1 = 0, 0
+        self.paras[1], t1 = 1, 0
         kk_2 = [0, 0, 0, 0, 0]
+        print('play_mon.2')
         while t1 < 101:
-            print('?2')
-            for i, static in enumerate(self.statics):
-                label = static.GetLabel()
-                val = self.volume[label] * self.paras[0]
-                # print(self.volume)
-                self.gauges[i].SetValue(min(val, 126))
+            # print('play_mon.21')
+            # for i, static in enumerate(self.statics):
+            #     label = static.GetLabel()
+            #     val = self.volume[label]  # * self.paras[0]
+            #     self.gauges[i].SetValue(min(val, 126))
             k_1 = 1.0
-            print('?3')
+            # print('play_mon.22')
             if self.serial is not None:
                 str_ = self.serial.readline()
                 try:
@@ -360,18 +381,20 @@ class initFrame(wx.Frame):
                     #             pass
                 except Exception:
                     pass
+            # print('play_mon.23')
             interval = (time.time() - t0 - self.paras[1]) * k_1
             self.paras[1] = self.paras[1] + interval
             # self.paras[1] = time.time() - t0
             t1 = int(self.paras[1] / span * 100)
-            print('??')
+            # print('play_mon.24')
         self.paras[1] = 0
+        print('play_mon.3')
         for gauge in self.gauges:
             gauge.SetValue(0)
         self.gau_2.SetValue(0)
-        self.serial.close()  # zhushi
-        self.serial.__del__()
-        self.serial = None
+        # self.serial.close()  # zhushi
+        # self.serial.__del__()
+        # self.serial = None
 
     def term(self, event):
         while self.thread is not None and self.thread.is_alive():
@@ -396,27 +419,27 @@ class initFrame(wx.Frame):
     def close(self, event):
         self.term(event)
         self.Destroy()
-
-    def func(self, event):
-        if event.Dragging():
-            x1, y1 = event.GetPosition()
-            if 359 < x1 < 697 and 379 < y1 < 601:
-                self.grp_s[self.grp_n].SetPosition((x1 - 30, y1 - 10))
-                x0, y0 = self.conductor.GetPosition()
-                grp = self.grp_s[self.grp_n].GetLabel()
-                rou = np.sqrt((x1 - x0)**2 + (y1 - y0)**2)
-                alpha = int(np.arccos((x1 - x0) / rou)/np.pi*180 + 0.5)
-                if y1 > y0 + 10 and x1 < x0:
-                    alpha = 180
-                if y1 > y0 + 10 and x1 > x0 + 10:
-                    alpha = 0
-                self.coords[grp] = [alpha, rou]
+    #
+    # def func(self, event):
+    #     x1, y1 = event.GetPosition()
+    #     if 359 < x1 < 697 and 379 < y1 < 601:
+    #         if event.Dragging():
+    #             self.grp_s[self.grp_n].SetPosition((x1 - 30, y1 - 10))
+    #             x0, y0 = self.conductor.GetPosition()
+    #             grp = self.grp_s[self.grp_n].GetLabel()
+    #             rou = np.sqrt((x1 - x0)**2 + (y1 - y0)**2)
+    #             alpha = int(np.arccos((x1 - x0) / rou)/np.pi*180 + 0.5)
+    #             if y1 > y0 + 10 and x1 < x0:
+    #                 alpha = 180
+    #             if y1 > y0 + 10 and x1 > x0 + 10:
+    #                 alpha = 0
+    #             self.coords[grp] = [alpha, rou]
 
 
 def gui():
     app = wx.App(False)
     frame = initFrame(parent=None, fid=-1)
-    frame.Bind(wx.EVT_MOUSE_EVENTS, frame.func)
+    # frame.Bind(wx.EVT_MOUSE_EVENTS, frame.func)
     frame.Show()
     app.MainLoop()
 
