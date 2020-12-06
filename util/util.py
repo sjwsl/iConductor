@@ -4,6 +4,10 @@ import wx
 import time
 import pygame.midi
 from util import song
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 
 instr_1 = {'钢琴类': 1, '其他类': 2, '风琴类': 3, '吉他类': 4, '贝斯类': 5, '弦乐器': 6,
@@ -47,20 +51,16 @@ def text_default_value(text, data_type, default):
 
 class SliderFrame(wx.Frame):
 
-    def __init__(self, call, val=63, parent=None, fid=-1):
+    def __init__(self, call, val=100, parent=None, fid=-1):
         wx.Frame.__init__(self, parent, fid, '', size=(245, 140),
                           style=wx.CAPTION | wx.CLOSE_BOX | wx.MINIMIZE_BOX)
         self.Center()
         self.call = call
         self.panel = wx.Panel(self)
-        self.slider = wx.Slider(self.panel, value=val, id=-1,
-                                minValue=1, maxValue=127, pos=(10, 20), size=(210, -1))
-        self.sl_txt = wx.StaticText(
-            self.panel, -1, label=str(val), pos=(90, 50), size=(50, 25), style=wx.TE_CENTER)
-        self.min = wx.StaticText(self.panel, id=1, label='1', pos=(
-            20, 50), size=(50, 25), style=wx.TE_LEFT)
-        self.max = wx.StaticText(self.panel, id=2, label='127', pos=(
-            160, 50), size=(50, 25), style=wx.TE_RIGHT)
+        self.slider = wx.Slider(self.panel, value=val, id=-1, minValue=0, maxValue=200, pos=(10, 20), size=(210, -1))
+        self.sl_txt = wx.StaticText(self.panel, -1, label=str(val/100), pos=(90, 50), size=(50, 25), style=wx.TE_CENTER)
+        self.min = wx.StaticText(self.panel, id=1, label='0', pos=(20, 50), size=(50, 25), style=wx.TE_LEFT)
+        self.max = wx.StaticText(self.panel, id=2, label='2', pos=(160, 50), size=(50, 25), style=wx.TE_RIGHT)
         self.sl_val = val
 
         self.slider.Bind(wx.EVT_SLIDER, self.slider_fun)
@@ -68,8 +68,26 @@ class SliderFrame(wx.Frame):
     def slider_fun(self, event):
         rb = event.GetEventObject()
         self.sl_val = rb.GetValue()
-        self.sl_txt.SetLabel(str(self.sl_val))
-        self.call(self.sl_val)
+        self.sl_txt.SetLabel(str(self.sl_val/100))
+        self.call(self.sl_val/100)
+
+
+class MPL_Panel(wx.Panel):
+
+    def __init__(self, parent, pos, size, style=wx.TE_CENTER | wx.EXPAND):
+        wx.Panel.__init__(self, parent=parent, size=size, pos=pos, style=style, id=-1)
+        tmp = (list(size)[0] / 100 + 0.1, list(size)[1] / 100 + 0.1)
+        self.Figure = matplotlib.figure.Figure(figsize=tmp)
+        self.axes = self.Figure.add_axes([0, 0, 0, 0])  #
+        self.FigureCanvas = FigureCanvas(self, -1, self.Figure)
+
+        self.SubBoxSizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.TopBoxSizer = wx.BoxSizer(wx.VERTICAL)
+        self.TopBoxSizer.Add(self.SubBoxSizer, proportion=-1, border=2, flag=wx.ALL | wx.EXPAND)
+        self.TopBoxSizer.Add(self.FigureCanvas, proportion=-10, border=2, flag=wx.ALL | wx.EXPAND)
+
+        self.SetSizer(self.TopBoxSizer)
 
 
 def _async_raise(tid, exc):
