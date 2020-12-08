@@ -12,6 +12,7 @@ import threading
 class initFrame(wx.Frame):
 
     def __init__(self, parent=None, fid=-1):
+        pygame.midi.init()
         wx.Frame.__init__(self, parent, fid, '人-机交互音乐指挥系统 v0.3', size=(770, 630),
                           style=wx.CAPTION | wx.CLOSE_BOX | wx.MINIMIZE_BOX)
         self.Center()
@@ -23,6 +24,9 @@ class initFrame(wx.Frame):
         img_1 = img_1.ConvertToBitmap()
         wx.StaticBitmap(self, -1, bitmap=img_1, pos=(210, 0))
 
+        self.stop = False
+        self.player = pygame.midi.Output(pygame.midi.get_default_output_id())  # 16
+
         self.volume = dict()
         self.coords = dict()
         self.paras = list()
@@ -31,8 +35,10 @@ class initFrame(wx.Frame):
         self.volume['1_钢琴'] = 1
         self.volume['1_立式钢琴'] = 1
         self.volume['1_合成弦1'] = 1
-        self.coords['1_钢琴'] = [int(np.arccos(32/np.sqrt(30**2+32**2))/np.pi*180 + 0.5), np.sqrt(30**2+32**2)]
-        self.coords['1_立式钢琴'] = [int(np.arccos(-62/np.sqrt(30**2+62**2))/np.pi*180 + 0.5), np.sqrt(30**2+62**2)]
+        self.coords['1_钢琴'] = [int(np.arccos(32 / np.sqrt(30 ** 2 + 32 ** 2)) / np.pi * 180 + 0.5),
+                               np.sqrt(30 ** 2 + 32 ** 2)]
+        self.coords['1_立式钢琴'] = [int(np.arccos(-62 / np.sqrt(30 ** 2 + 62 ** 2)) / np.pi * 180 + 0.5),
+                                 np.sqrt(30 ** 2 + 62 ** 2)]
         self.panel = wx.Panel(self, pos=(366, 300), size=(330, 220))
         self.graph = util.MPL_Panel(self.panel, pos=(0, 0), size=(330, 220))
 
@@ -87,7 +93,7 @@ class initFrame(wx.Frame):
         wx.StaticText(self, -1, label='乐器布局 :', pos=(365, 305), size=(80, 30))
         self.gau_1 = wx.Gauge(self, -1, 100, pos=(440, 200), size=(250, 20), style=wx.GA_HORIZONTAL)
         self.gau_2 = wx.Gauge(self, -1, 127, pos=(440, 240), size=(250, 20), style=wx.GA_HORIZONTAL)
-        self.thread, self.player, self.serial = None, None, None
+        self.thread, self.serial = None, None
         self.ch_lst, self.ev_lst = None, None
         self.btn_5, self.btn_6 = None, None
         self.gauges, self.statics = [], []
@@ -180,7 +186,7 @@ class initFrame(wx.Frame):
     def sld(self, event):
         grp = (self.cbb_5.GetValue()).strip()
         val = self.volume[grp]
-        frame = util.SliderFrame(parent=None, fid=-1, val=val*100, call=self.callback)
+        frame = util.SliderFrame(parent=None, fid=-1, val=val * 100, call=self.callback)
         frame.Show()
 
     def callback(self, val):
@@ -246,10 +252,10 @@ class initFrame(wx.Frame):
         self.play_pre(event)
         self.thread.start()
         time.sleep(2)
-        self.player.start()
+        self.play_thread.start()
 
     def play_pre(self, event):
-        self.player, self.thread, self.serial = None, None, None
+        self.thread, self.serial = None, None
         self.ch_lst, self.ev_lst = None, None
         self.angle = 90
         self.tree = None
@@ -277,20 +283,26 @@ class initFrame(wx.Frame):
         span = self.ev_lst[-1][0] / 800
         print('play_pre.4')
         self.thread = threading.Thread(target=self.mon, args=(span,))
-        self.player = threading.Thread(target=self.play_music, args=())
+        self.play_thread = threading.Thread(target=self.play_music, args=())
         print('play_pre.5')
 
     def play_music(self):
-        pygame.midi.init()
-        player = pygame.midi.Output(1)  # 16
+        player = self.player
+
         print(self.ch_lst)
         for ch in self.ch_lst:
             ins = ch[1].split('_')[-1]
-            idx = util.instr_2[ins]-1
+            idx = util.instr_2[ins] - 1
             player.set_instrument(idx, channel=ch[0])
         last = 0
         span = self.ev_lst[-1][0]
         for event in self.ev_lst:
+            if self.stop:
+                for note in range(0, 128):
+                    for chan in range(0, 10):
+                        player.note_off(note, channel=chan)
+                self.stop = False
+                return
             # print(event)
             if event[0] > last:
                 time.sleep((event[0] - last) / 800)
@@ -352,7 +364,7 @@ class initFrame(wx.Frame):
                                 pass
                         for i in o_lt:
                             k_di[i] = 1
-                        L, R = max(k_3-20, 0), min(k_3+20, 180)
+                        L, R = max(k_3 - 20, 0), min(k_3 + 20, 180)
                         print(L, R)
                         self.tree.query(L, R)
                         n_lt = self.tree.A
@@ -388,11 +400,8 @@ class initFrame(wx.Frame):
         # self.serial = None
 
     def term(self, event):
-        if self.thread is not None:
-            self.thread.Destroy()
-        if self.player is not None:
-            self.player.Destroy()
-        self.thread, self.player = None, None
+        self.stop = True
+        self.thread = None
         self.ch_lst, self.ev_lst = None, None
         while self.thread is not None and self.thread.is_alive():
             self.thread.Destroy()
