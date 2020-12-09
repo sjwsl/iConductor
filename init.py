@@ -5,9 +5,10 @@ import numpy as np
 import pygame.midi
 from util import util, song, tree
 
+import os
 import serial
 import threading
-import os
+
 
 class initFrame(wx.Frame):
 
@@ -33,7 +34,6 @@ class initFrame(wx.Frame):
 
         music_lst_1 = [' 所有', ]
         music_lst_2 = [' 天空之城', ]
-        self.instrs = {'钢琴': 1, '立式钢琴': 1}
         wx.StaticText(self, -1, label='设备 :', pos=(60, 120), size=(40, 30))
         wx.StaticText(self, -1, label='作者 :', pos=(60, 160), size=(60, 30))
         wx.StaticText(self, -1, label='曲目 :', pos=(60, 200), size=(60, 30))
@@ -69,18 +69,17 @@ class initFrame(wx.Frame):
         self.gau_1 = wx.Gauge(self, -1, 100, pos=(440, 200), size=(250, 20), style=wx.GA_HORIZONTAL)
         self.gau_2 = wx.Gauge(self, -1, 127, pos=(440, 240), size=(250, 20), style=wx.GA_HORIZONTAL)
 
-        self.groups = []
-        self.panel_init()
         pygame.midi.init()
         self.output = pygame.midi.Output(pygame.midi.get_default_output_id())
         self.thread, self.player, self.serial = None, None, None
         self.ch_lst, self.ev_lst = None, None
-        self.btn_6, self.btn_7 = None, None
+        self.chan_1, self.chan_2 = dict(), dict()
         self.gauges, self.statics = [], []
+        self.groups = []
+        self.panel_init()
         self.term = True
         self.pause = False
         self.orche = None
-        self.first = 0
         self.angle = 90
         self.display()
 
@@ -99,13 +98,16 @@ class initFrame(wx.Frame):
     def panel_init(self):
         music = (self.cbb_2.GetValue()).strip()
         confs = song.songs[music]['confs']
-        for conf in list(confs):
-            pos_r = confs[conf][0]
-            pos_a = confs[conf][1] / 180 * np.pi
+        for i, instr in enumerate(list(confs)):
+            pos_r = confs[instr][0]
+            pos_a = confs[instr][1] / 180 * np.pi
             pos_x = 160 + pos_r * np.cos(pos_a)
             pos_y = 170 - pos_r * np.sin(pos_a)
-            self.groups.append(wx.StaticText(self.panel, 0, label=conf, pos=(pos_x, pos_y), size=(60, 20)))
+            self.groups.append(wx.StaticText(self.panel, -1, label=instr, pos=(pos_x, pos_y), size=(60, 20)))
             # zhu: yuan lai zhe li shi alpha-rho zuo biao xian zai shi rho-alpha zuo biao
+            print(i, '+', instr)
+            self.chan_1[instr], self.chan_2[i] = i, 2*i
+        print(self.chan_1, self.chan_2)
 
     def frame_init(self):
         music = (self.cbb_2.GetValue()).strip()
@@ -119,47 +121,12 @@ class initFrame(wx.Frame):
 
     def display(self):
         self.clear()
-        instrs = list(self.volume)[self.first:self.first + 6]
+        instrs = list(self.volume)
         for i, instr in enumerate(instrs):
-            self.statics.append(wx.StaticText(self, id=i, label=instr, pos=(60, 280 + 40 * i), size=(60, 20)))
-            self.gauges.append(wx.Gauge(self, id=2*i, range=127, pos=(130, 278 + 40 * i), size=(190, 9)))
-            self.gauges.append(wx.Gauge(self, id=2*i+1, range=200, pos=(130, 292 + 40 * i), size=(190, 9)))
-        self.up_or_dn()
-
-    def up_or_dn(self):
-        tot = len(list(self.volume))
-        if self.first > 0:
-            if self.btn_6 is None:
-                self.btn_6 = wx.Button(
-                    self, id=-1, label='up', pos=(60, 320), size=(20, 20))
-                self.btn_6.Bind(wx.EVT_LEFT_DOWN, self.up)
-        else:
-            if self.btn_6 is not None:
-                self.btn_6.Destroy()
-            self.btn_6 = None
-        if tot > self.first + 6:
-            if self.btn_7 is None:
-                self.btn_7 = wx.Button(
-                    self, id=-1, label='dn', pos=(100, 320), size=(20, 20))
-                self.btn_7.Bind(wx.EVT_LEFT_DOWN, self.dn)
-        else:
-            if self.btn_7 is not None:
-                self.btn_7.Destroy()
-            self.btn_7 = None
-
-    def up(self, event):
-        self.first = self.first - 1
-        instrs = list(self.volume)[self.first:self.first + 6]
-        for i, instr in enumerate(instrs):
-            self.statics[i].SetLabel(instr)
-        self.up_or_dn()
-
-    def dn(self, event):
-        self.first = self.first + 1
-        instrs = list(self.volume)[self.first:self.first + 6]
-        for i, instr in enumerate(instrs):
-            self.statics[i].SetLabel(instr)
-        self.up_or_dn()
+            self.statics.append(wx.StaticText(self, id=-1, label=instr, pos=(60, 280 + 40 * i), size=(60, 20)))
+            self.gauges.append(wx.Gauge(self, id=2*i, range=200, pos=(130, 278 + 40 * i), size=(190, 9)))
+            self.gauges.append(wx.Gauge(self, id=2*i+1, range=127, pos=(130, 292 + 40 * i), size=(190, 9)))
+            self.chan_2[self.chan_1[instr]] = 2*i
 
     def volume_func(self, event):
         grp = (self.cbb_5.GetValue()).strip()
@@ -178,42 +145,26 @@ class initFrame(wx.Frame):
         self.volume[grp] = int(val)
 
     def rmv(self, event):
-        in_ = (self.cbb_5.GetValue()).strip()
-        ins = in_.split('_')[-1]
-        idx = util.text_default_value(in_.split('_')[0], 'int', 0)
-        num = self.instrs[ins] = self.instrs[ins] - 1
-        if num == 0:
-            self.instrs.pop(ins)
-            self.volume.pop(in_)
-        else:
-            for i in range(idx, num + 1):
-                self.volume[str(i) + '_' +
-                            ins] = self.volume[str(i + 1) + '_' + ins]
-            self.volume.pop(str(num + 1) + '_' + ins)
+        if len(list(self.volume)) == 1:
+            return
+        ins = (self.cbb_5.GetValue()).strip()
+        self.volume.pop(ins)
         self.cbb_5.Destroy()
-        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 237), size=(190, 30), value=' ' + list(self.volume)[0],
+        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 157), size=(190, 30), value=' ' + list(self.volume)[0],
                                  choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
         self.btn_1.SetLabel(str(self.volume[list(self.volume)[0]]))
         for i in range(len(self.groups)):
             label = self.groups[i].GetLabel()
-            if label == in_:
+            if label == ins:
                 grp_st = self.groups.pop(i)
                 grp_st.Destroy()
                 break
-        for i in range(len(self.groups)):
-            label = self.groups[i].GetLabel()
-            if label.endswith('_' + ins):
-                idx_ = int(label.split('_')[0])
-                if idx_ > idx:
-                    self.groups[i].SetLabel(str(idx_-1) + '_' + ins)
         self.display()
 
     def play(self, event):
-
         if not self.term and self.pause:
             self.pause = False
             return
-
         if self.term:
             self.pause = False
             self.term = False
@@ -280,11 +231,15 @@ class initFrame(wx.Frame):
                 if self.term:
                     return
             if event[0] > last:
-                time.sleep((event[0] - last) / 800)
+                time.sleep((event[0] - last) / 1000)
                 last = event[0]
                 self.gau_1.SetValue(last / span * 100)
             player.note_on(event[1], event[2], channel=event[3])
             self.gau_2.SetValue(event[1])
+            gau_1 = wx.FindWindowById(id=self.chan_2[event[3]])
+            gau_2 = wx.FindWindowById(id=self.chan_2[event[3]]+1)
+            gau_1.SetValue(1 * 100)
+            gau_2.SetValue(event[1])
 
     def mon(self, span):
         # self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
@@ -341,9 +296,9 @@ class initFrame(wx.Frame):
                             k_di[i] = 1
                         L, R = max(k_3 - 20, 0), min(k_3 + 20, 180)
                         print(L, R)
-                        self.tree.query(L, R)
-                        n_lt = self.tree.A
-                        print(self.tree.A, L, R)
+                        # self.tree.query(L, R)
+                        # n_lt = self.tree.A
+                        # print(self.tree.A, L, R)
                         for i in n_lt:
                             k_di[i] = k_4 / 10 + 1
                         for i in n_lt:
@@ -390,12 +345,10 @@ class initFrame(wx.Frame):
                 gauge.SetValue(0)
             self.gau_1.SetValue(0)
             self.gau_2.SetValue(0)
-            self.tree = None
             self.paras[1] = 0
 
     def close(self, event):
         self.term = True
-        time.sleep(1)
         self.kill(event, True)
         self.Destroy()
         os._exit(0)
