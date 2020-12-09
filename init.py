@@ -7,9 +7,7 @@ from util import util, song, tree
 
 import serial
 import threading
-import sys
-import signal
-
+import os
 
 class initFrame(wx.Frame):
 
@@ -400,6 +398,7 @@ class initFrame(wx.Frame):
         time.sleep(1)
         self.kill(event, True)
         self.Destroy()
+        os._exit(0)
 
 
 def gui():
