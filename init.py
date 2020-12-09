@@ -12,7 +12,6 @@ import threading
 class initFrame(wx.Frame):
 
     def __init__(self, parent=None, fid=-1):
-        pygame.midi.init()
         wx.Frame.__init__(self, parent, fid, '人-机交互音乐指挥系统 v0.3', size=(770, 630),
                           style=wx.CAPTION | wx.CLOSE_BOX | wx.MINIMIZE_BOX)
         self.Center()
@@ -24,21 +23,13 @@ class initFrame(wx.Frame):
         img_1 = img_1.ConvertToBitmap()
         wx.StaticBitmap(self, -1, bitmap=img_1, pos=(210, 0))
 
-        self.stop = False
-        self.player = pygame.midi.Output(pygame.midi.get_default_output_id())  # 16
-
-        self.volume = dict()
-        self.coords = dict()
         self.paras = list()
         self.paras.append(1.0)
         self.paras.append(0.0)
+        self.volume = dict()
         self.volume['1_钢琴'] = 1
         self.volume['1_立式钢琴'] = 1
         self.volume['1_合成弦1'] = 1
-        self.coords['1_钢琴'] = [int(np.arccos(32 / np.sqrt(30 ** 2 + 32 ** 2)) / np.pi * 180 + 0.5),
-                               np.sqrt(30 ** 2 + 32 ** 2)]
-        self.coords['1_立式钢琴'] = [int(np.arccos(-62 / np.sqrt(30 ** 2 + 62 ** 2)) / np.pi * 180 + 0.5),
-                                 np.sqrt(30 ** 2 + 62 ** 2)]
         self.panel = wx.Panel(self, pos=(366, 300), size=(330, 220))
         self.graph = util.MPL_Panel(self.panel, pos=(0, 0), size=(330, 220))
 
@@ -85,21 +76,24 @@ class initFrame(wx.Frame):
         # self.grp_n = 0
         # for grp in self.groups:
         #     grp.Bind(wx.EVT_LEFT_DOWN, self.grp_func)
-        wx.StaticBox(self, pos=(366, 300), size=(330, 220))
+        # wx.StaticBox(self, pos=(366, 300), size=(330, 220))
         wx.StaticLine(self, pos=(60, 250), size=(260, -1), style=wx.SL_HORIZONTAL)
         wx.StaticLine(self, pos=(360, 280), size=(330, -1), style=wx.SL_HORIZONTAL)
         wx.StaticText(self, -1, label='演奏进度 :', pos=(365, 200), size=(60, 20))
         wx.StaticText(self, -1, label='总体音量 :', pos=(365, 240), size=(60, 20))
-        wx.StaticText(self, -1, label='乐器布局 :', pos=(365, 305), size=(80, 30))
+        wx.StaticText(self, -1, label='乐器布局 :', pos=(365, 300), size=(80, 30))
         self.gau_1 = wx.Gauge(self, -1, 100, pos=(440, 200), size=(250, 20), style=wx.GA_HORIZONTAL)
         self.gau_2 = wx.Gauge(self, -1, 127, pos=(440, 240), size=(250, 20), style=wx.GA_HORIZONTAL)
-        self.thread, self.serial = None, None
+
+        pygame.midi.init()
+        self.output = pygame.midi.Output(1)
+        self.thread, self.player, self.serial = None, None, None
         self.ch_lst, self.ev_lst = None, None
         self.btn_5, self.btn_6 = None, None
         self.gauges, self.statics = [], []
+        self.stop = False
+        self.orche = None
         self.angle = 90
-        self.tree = None
-        self.instr_ = 0
         # self.display()
 
     def clear(self):
@@ -252,44 +246,47 @@ class initFrame(wx.Frame):
         self.play_pre(event)
         self.thread.start()
         time.sleep(2)
-        self.play_thread.start()
+        self.player.start()
 
     def play_pre(self, event):
         self.thread, self.serial = None, None
         self.ch_lst, self.ev_lst = None, None
         self.angle = 90
-        self.tree = None
-        self.instr_ = 0
+        self.orche = None
         print('play_pre.1')
         self.gau_1.SetValue(0)
         print('play_pre.2')
-        self.tree = tree.SegTree()
-        self.tree.build(self.coords)
-        self.tree.query(0, 180)
+        # self.tree = tree.SegTree()
+        # self.tree.build(self.coords)
+        # self.tree.query(0, 180)
         print('play_pre.3')
         # print(self.tree.A)
         music = (self.cbb_2.GetValue()).strip()
+        confs = song.songs[music]['confs']
         events = song.songs[music]['events']
+        confs_ = dict()
         list_1 = list(self.volume)
         list_2 = []
+        for ins in list_1:
+            confs_[ins] = confs[ins]
         for i, ev in enumerate(list(events)):
             list_2.append([i, ev])
         self.ch_lst = [ch for ch in list_2 if ch[1] in list_1]
         self.ev_lst = []
         for ch in self.ch_lst:
             self.ev_lst = self.ev_lst + events[ch[1]]
+        self.orche = tree.InstrumentContainer()
+        self.orche.create(confs_)
+        print(self.orche.ilist)
         self.ev_lst = sorted(self.ev_lst)
-        print(self.ev_lst)
         span = self.ev_lst[-1][0] / 800
         print('play_pre.4')
         self.thread = threading.Thread(target=self.mon, args=(span,))
-        self.play_thread = threading.Thread(target=self.play_music, args=())
+        self.player = threading.Thread(target=self.play_music, args=())
         print('play_pre.5')
 
     def play_music(self):
-        player = self.player
-
-        print(self.ch_lst)
+        player = self.output
         for ch in self.ch_lst:
             ins = ch[1].split('_')[-1]
             idx = util.instr_2[ins] - 1
@@ -299,11 +296,11 @@ class initFrame(wx.Frame):
         for event in self.ev_lst:
             if self.stop:
                 for note in range(0, 128):
-                    for chan in range(0, 10):
+                    for chan in range(0, 16):
                         player.note_off(note, channel=chan)
+                self.term()
                 self.stop = False
                 return
-            # print(event)
             if event[0] > last:
                 time.sleep((event[0] - last) / 800)
                 last = event[0]
@@ -399,26 +396,26 @@ class initFrame(wx.Frame):
         # self.serial.__del__()
         # self.serial = None
 
-    def term(self, event):
+    def term(self, close=False, event=None):
         self.stop = True
         self.thread = None
         self.ch_lst, self.ev_lst = None, None
-        while self.thread is not None and self.thread.is_alive():
-            self.thread.Destroy()
-        self.thread = None
         if self.serial is not None:
             self.serial.close()
             self.serial.__del__()
-        self.serial = None
-        for gauge in self.gauges:
-            gauge.SetValue(0)
-        self.gau_1.SetValue(0)
-        self.gau_2.SetValue(0)
-        self.tree = None
-        self.paras[1] = 0
+        self.serial, self.player = None, None
+        if not close:
+            for gauge in self.gauges:
+                gauge.SetValue(0)
+            self.gau_1.SetValue(0)
+            self.gau_2.SetValue(0)
+            self.tree = None
+            self.paras[1] = 0
 
     def close(self, event):
-        self.term(event)
+        self.stop = True
+        time.sleep(1)
+        self.term(event, True)
         self.Destroy()
     #
     # def func(self, event):
