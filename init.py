@@ -30,9 +30,6 @@ class initFrame(wx.Frame):
         self.paras.append(1.0)
         self.paras.append(0.0)
         self.volume = dict()
-        self.volume['1_钢琴'] = 1
-        self.volume['1_立式钢琴'] = 1
-        self.volume['1_合成弦1'] = 1
         self.panel = wx.Panel(self, pos=(366, 300), size=(330, 220))
         self.graph = util.MPL_Panel(self.panel, pos=(0, 0), size=(330, 220))
 
@@ -46,42 +43,26 @@ class initFrame(wx.Frame):
                                  choices=music_lst_1, style=wx.CB_SORT | wx.CB_READONLY)
         self.cbb_2 = wx.ComboBox(self, -1, pos=(130, 197), size=(190, 30), value=music_lst_2[0],
                                  choices=music_lst_2, style=wx.CB_READONLY)  # wx.CB_SORT |
-        # wx.StaticText(self, -1, label='乐器大类 :', pos=(60, 240), size=(60, 30))
-        # wx.StaticText(self, -1, label='乐器小类 :', pos=(60, 280), size=(60, 30))
-        # self.cbb_3 = wx.ComboBox(self, -1, pos=(130, 237), size=(190, 30), value=' ' + list(util.instr_1)[0],
-        #                          choices=util.str_list_indent(list(util.instr_1)), style=wx.CB_READONLY)
-        # self.cbb_3.Bind(wx.EVT_COMBOBOX, self.type_func)
-        # self.cbb_4 = wx.ComboBox(self, -1, pos=(130, 277), size=(190, 30), value=' ' + list(util.instr_2)[0],
-        #                          choices=util.str_list_indent(list(util.instr_2)[0:8]), style=wx.CB_READONLY)
-        wx.StaticText(self, -1, label='声道 :', pos=(365, 160), size=(40, 30))
-        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 157), size=(190, 30), value=' ' + list(self.volume)[0],
-                                 choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
-        self.cbb_5.Bind(wx.EVT_COMBOBOX, self.volume_func)
+        self.cbb_5 = None
+        self.frame_init()
+
         set_lst_a = [' COM3']
         set_lst_b = [' 9600', ' 19200', ' 28800', ' 57600', ' 115200']
         self.set_a = wx.ComboBox(self, -1, pos=(130, 117), size=(80, 30), value=' COM3',
                                  choices=set_lst_a, style=wx.CB_READONLY)
         self.set_b = wx.ComboBox(self, -1, pos=(240, 117), size=(80, 30), value=' 9600',
                                  choices=set_lst_b, style=wx.CB_READONLY)
-        # self.btn_0 = wx.Button(self, id=-1, label='添加乐器', pos=(155, 317), size=(140, 29))
-        # self.btn_0.Bind(wx.EVT_LEFT_DOWN, self.add)
         self.btn_1 = wx.Button(self, id=-1, label='1', pos=(625, 156), size=(28, 28))
         self.btn_1.Bind(wx.EVT_LEFT_DOWN, self.sld)
         self.btn_2 = wx.Button(self, id=-1, label='×', pos=(664, 156), size=(26, 28))
-        # self.btn_2.Bind(wx.EVT_LEFT_DOWN, self.rmv)
+        self.btn_2.Bind(wx.EVT_LEFT_DOWN, self.rmv)
         self.btn_3 = wx.Button(self, id=-1, label='开始', pos=(360, 113), size=(60, 30))
         self.btn_3.Bind(wx.EVT_LEFT_DOWN, self.play)
         self.btn_4 = wx.Button(self, id=-1, label='中止', pos=(440, 113), size=(60, 30))
-        self.btn_4.Bind(wx.EVT_LEFT_DOWN, self.term)
-        self.btn_4 = wx.Button(self, id=-1, label='暂停', pos=(520, 113), size=(60, 30))
-        self.btn_4.Bind(wx.EVT_LEFT_DOWN, self.pause)
+        self.btn_4.Bind(wx.EVT_LEFT_DOWN, self.kill)
+        self.btn_5 = wx.Button(self, id=-1, label='暂停', pos=(520, 113), size=(60, 30))
+        self.btn_5.Bind(wx.EVT_LEFT_DOWN, self.stop)
         self.conductor = wx.StaticText(self.panel, -1, label='我', pos=(160, 170), size=(20, 20))
-        self.groups = []
-        self.panel_init()
-        # self.grp_n = 0
-        # for grp in self.groups:
-        #     grp.Bind(wx.EVT_LEFT_DOWN, self.grp_func)
-        # wx.StaticBox(self, pos=(366, 300), size=(330, 220))
         wx.StaticLine(self, pos=(60, 250), size=(260, -1), style=wx.SL_HORIZONTAL)
         wx.StaticLine(self, pos=(360, 280), size=(330, -1), style=wx.SL_HORIZONTAL)
         wx.StaticText(self, -1, label='演奏进度 :', pos=(365, 200), size=(60, 20))
@@ -90,17 +71,20 @@ class initFrame(wx.Frame):
         self.gau_1 = wx.Gauge(self, -1, 100, pos=(440, 200), size=(250, 20), style=wx.GA_HORIZONTAL)
         self.gau_2 = wx.Gauge(self, -1, 127, pos=(440, 240), size=(250, 20), style=wx.GA_HORIZONTAL)
 
+        self.groups = []
+        self.panel_init()
         pygame.midi.init()
         self.output = pygame.midi.Output(pygame.midi.get_default_output_id())
         self.thread, self.player, self.serial = None, None, None
         self.ch_lst, self.ev_lst = None, None
-        self.btn_5, self.btn_6 = None, None
+        self.btn_6, self.btn_7 = None, None
         self.gauges, self.statics = [], []
-        self.stop = True
-        self.pausing = False
+        self.term = True
+        self.pause = False
         self.orche = None
+        self.first = 0
         self.angle = 90
-        # self.display()
+        self.display()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         for note in range(0, 128):
@@ -113,7 +97,6 @@ class initFrame(wx.Frame):
         for static in self.statics:
             static.Destroy()
         self.gauges, self.statics = [], []
-        self.ch_lst, self.ev_lst = None, None
 
     def panel_init(self):
         music = (self.cbb_2.GetValue()).strip()
@@ -126,62 +109,59 @@ class initFrame(wx.Frame):
             self.groups.append(wx.StaticText(self.panel, 0, label=conf, pos=(pos_x, pos_y), size=(60, 20)))
             # zhu: yuan lai zhe li shi alpha-rho zuo biao xian zai shi rho-alpha zuo biao
 
-    # def display(self):
-    #     self.clear()
-    #     instrs = list(self.volume)[self.instr_:self.instr_ + 6]
-    #     for i, instr in enumerate(instrs):
-    #         self.statics.append(wx.StaticText(self, id=i, label=instr, pos=(60, 380 + 40 * i), size=(60, 20)))
-    #         self.gauges.append(wx.Gauge(self, id=i, range=127, pos=(130, 380 + 40 * i), size=(190, 20),
-    #                                     style=wx.GA_SMOOTH))
-    #     self.up_or_dn()
-    #
-    # def up_or_dn(self):
-    #     tot = len(list(self.volume))
-    #     if self.instr_ > 0:
-    #         if self.btn_5 is None:
-    #             self.btn_5 = wx.Button(
-    #                 self, id=-1, label='up', pos=(60, 320), size=(20, 20))
-    #             self.btn_5.Bind(wx.EVT_LEFT_DOWN, self.up)
-    #     else:
-    #         if self.btn_5 is not None:
-    #             self.btn_5.Destroy()
-    #         self.btn_5 = None
-    #     if tot > self.instr_ + 6:
-    #         if self.btn_6 is None:
-    #             self.btn_6 = wx.Button(
-    #                 self, id=-1, label='dn', pos=(100, 320), size=(20, 20))
-    #             self.btn_6.Bind(wx.EVT_LEFT_DOWN, self.dn)
-    #     else:
-    #         if self.btn_6 is not None:
-    #             self.btn_6.Destroy()
-    #         self.btn_6 = None
-    #
-    # def up(self, event):
-    #     self.instr_ = self.instr_ - 1
-    #     instrs = list(self.volume)[self.instr_:self.instr_ + 6]
-    #     for i, instr in enumerate(instrs):
-    #         self.statics[i].SetLabel(instr)
-    #     self.up_or_dn()
-    #
-    # def dn(self, event):
-    #     self.instr_ = self.instr_ + 1
-    #     instrs = list(self.volume)[self.instr_:self.instr_ + 6]
-    #     for i, instr in enumerate(instrs):
-    #         self.statics[i].SetLabel(instr)
-    #     self.up_or_dn()
-    #
-    # def grp_func(self, event):
-    #     grp = event.GetEventObject()
-    #     gid = grp.GetId()
-    #     self.grp_n = gid
-    #
-    # def type_func(self, event):
-    #     idx = util.instr_1[(self.cbb_3.GetValue()).strip()] - 1
-    #     lst = list(util.instr_2)[idx * 8:idx * 8 + 8]
-    #     val = list(util.instr_2)[idx * 8]
-    #     self.cbb_4.Destroy()
-    #     self.cbb_4 = wx.ComboBox(self, -1, pos=(130, 277), size=(190, 30), value=' ' + val,
-    #                              choices=util.str_list_indent(lst), style=wx.CB_READONLY)
+    def frame_init(self):
+        music = (self.cbb_2.GetValue()).strip()
+        confs = song.songs[music]['confs']
+        for conf in list(confs):
+            self.volume[conf] = 1
+        wx.StaticText(self, -1, label='声道 :', pos=(365, 160), size=(40, 30))
+        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 157), size=(190, 30), value=' ' + list(self.volume)[0],
+                                 choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
+        self.cbb_5.Bind(wx.EVT_COMBOBOX, self.volume_func)
+
+    def display(self):
+        self.clear()
+        instrs = list(self.volume)[self.first:self.first + 6]
+        for i, instr in enumerate(instrs):
+            self.statics.append(wx.StaticText(self, id=i, label=instr, pos=(60, 280 + 40 * i), size=(60, 20)))
+            self.gauges.append(wx.Gauge(self, id=2*i, range=127, pos=(130, 278 + 40 * i), size=(190, 9)))
+            self.gauges.append(wx.Gauge(self, id=2*i+1, range=200, pos=(130, 292 + 40 * i), size=(190, 9)))
+        self.up_or_dn()
+
+    def up_or_dn(self):
+        tot = len(list(self.volume))
+        if self.first > 0:
+            if self.btn_6 is None:
+                self.btn_6 = wx.Button(
+                    self, id=-1, label='up', pos=(60, 320), size=(20, 20))
+                self.btn_6.Bind(wx.EVT_LEFT_DOWN, self.up)
+        else:
+            if self.btn_6 is not None:
+                self.btn_6.Destroy()
+            self.btn_6 = None
+        if tot > self.first + 6:
+            if self.btn_7 is None:
+                self.btn_7 = wx.Button(
+                    self, id=-1, label='dn', pos=(100, 320), size=(20, 20))
+                self.btn_7.Bind(wx.EVT_LEFT_DOWN, self.dn)
+        else:
+            if self.btn_7 is not None:
+                self.btn_7.Destroy()
+            self.btn_7 = None
+
+    def up(self, event):
+        self.first = self.first - 1
+        instrs = list(self.volume)[self.first:self.first + 6]
+        for i, instr in enumerate(instrs):
+            self.statics[i].SetLabel(instr)
+        self.up_or_dn()
+
+    def dn(self, event):
+        self.first = self.first + 1
+        instrs = list(self.volume)[self.first:self.first + 6]
+        for i, instr in enumerate(instrs):
+            self.statics[i].SetLabel(instr)
+        self.up_or_dn()
 
     def volume_func(self, event):
         grp = (self.cbb_5.GetValue()).strip()
@@ -199,69 +179,46 @@ class initFrame(wx.Frame):
         grp = (self.cbb_5.GetValue()).strip()
         self.volume[grp] = int(val)
 
-    # def add(self, event):
-    #     ins = (self.cbb_4.GetValue()).strip()
-    #     try:
-    #         num = self.instrs[ins]
-    #     except KeyError:
-    #         num = 0
-    #     grp = str(num + 1) + '_' + ins
-    #     self.instrs[ins] = num + 1
-    #     self.volume[grp] = 1
-    #     self.coords[grp] = [0, -1]
-    #     self.cbb_5.Destroy()
-    #     name = list(self.volume)[0]
-    #     self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 237), size=(190, 30), value=' ' + name,
-    #                              choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
-    #     self.cbb_5.Bind(wx.EVT_COMBOBOX, self.volume_func)
-    #     self.btn_1.SetLabel(str(self.volume[name]))
-    #     self.groups.append(wx.StaticText(self, len(self.groups),
-    #                                     label=grp, pos=(620, 405), size=(60, 20)))
-    #     self.groups[-1].Bind(wx.EVT_LEFT_DOWN, self.grp_func)
-    #     self.display()
-
-    # def rmv(self, event):
-    #     in_ = (self.cbb_5.GetValue()).strip()
-    #     ins = in_.split('_')[-1]
-    #     idx = util.text_default_value(in_.split('_')[0], 'int', 0)
-    #     num = self.instrs[ins] = self.instrs[ins] - 1
-    #     if num == 0:
-    #         self.instrs.pop(ins)
-    #         self.volume.pop(in_)
-    #         self.coords.pop(in_)
-    #     else:
-    #         for i in range(idx, num + 1):
-    #             self.volume[str(i) + '_' +
-    #                         ins] = self.volume[str(i + 1) + '_' + ins]
-    #         self.volume.pop(str(num + 1) + '_' + ins)
-    #         self.coords.pop(str(num + 1) + '_' + ins)
-    #     self.cbb_5.Destroy()
-    #     self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 237), size=(190, 30), value=' ' + list(self.volume)[0],
-    #                              choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
-    #     self.btn_1.SetLabel(str(self.volume[list(self.volume)[0]]))
-    #     for i in range(len(self.groups)):
-    #         label = self.groups[i].GetLabel()
-    #         if label == in_:
-    #             grp_st = self.groups.pop(i)
-    #             grp_st.Destroy()
-    #             break
-    #     for i in range(len(self.groups)):
-    #         label = self.groups[i].GetLabel()
-    #         if label.endswith('_' + ins):
-    #             idx_ = int(label.split('_')[0])
-    #             if idx_ > idx:
-    #                 self.groups[i].SetLabel(str(idx_-1) + '_' + ins)
-    #     self.display()
+    def rmv(self, event):
+        in_ = (self.cbb_5.GetValue()).strip()
+        ins = in_.split('_')[-1]
+        idx = util.text_default_value(in_.split('_')[0], 'int', 0)
+        num = self.instrs[ins] = self.instrs[ins] - 1
+        if num == 0:
+            self.instrs.pop(ins)
+            self.volume.pop(in_)
+        else:
+            for i in range(idx, num + 1):
+                self.volume[str(i) + '_' +
+                            ins] = self.volume[str(i + 1) + '_' + ins]
+            self.volume.pop(str(num + 1) + '_' + ins)
+        self.cbb_5.Destroy()
+        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 237), size=(190, 30), value=' ' + list(self.volume)[0],
+                                 choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
+        self.btn_1.SetLabel(str(self.volume[list(self.volume)[0]]))
+        for i in range(len(self.groups)):
+            label = self.groups[i].GetLabel()
+            if label == in_:
+                grp_st = self.groups.pop(i)
+                grp_st.Destroy()
+                break
+        for i in range(len(self.groups)):
+            label = self.groups[i].GetLabel()
+            if label.endswith('_' + ins):
+                idx_ = int(label.split('_')[0])
+                if idx_ > idx:
+                    self.groups[i].SetLabel(str(idx_-1) + '_' + ins)
+        self.display()
 
     def play(self, event):
 
-        if not self.stop and self.pausing:
-            self.pausing = False
+        if not self.term and self.pause:
+            self.pause = False
             return
 
-        if self.stop:
-            self.pausing = False
-            self.stop = False
+        if self.term:
+            self.pause = False
+            self.term = False
             self.play_pre(event)
             self.thread.start()
             time.sleep(2)
@@ -275,11 +232,6 @@ class initFrame(wx.Frame):
         print('play_pre.1')
         self.gau_1.SetValue(0)
         print('play_pre.2')
-        # self.tree = tree.SegTree()
-        # self.tree.build(self.coords)
-        # self.tree.query(0, 180)
-        print('play_pre.3')
-        # print(self.tree.A)
         music = (self.cbb_2.GetValue()).strip()
         confs = song.songs[music]['confs']
         events = song.songs[music]['events']
@@ -313,24 +265,22 @@ class initFrame(wx.Frame):
         last = 0
         span = self.ev_lst[-1][0]
         for event in self.ev_lst:
-            if self.stop:
+            if self.term:
                 for note in range(0, 128):
                     for chan in range(0, 16):
                         player.note_off(note, channel=chan)
-                # self.stop = False
+                self.kill()
                 return
-
-            if self.pausing:
+            if self.pause:
                 for note in range(0, 128):
                     for chan in range(0, 16):
                         player.note_off(note, channel=chan)
-                while self.pausing:
+                while self.pause:
                     time.sleep(0.01)
-                    if self.stop:
+                    if self.term:
                         return
-                if self.stop:
+                if self.term:
                     return
-
             if event[0] > last:
                 time.sleep((event[0] - last) / 800)
                 last = event[0]
@@ -426,11 +376,11 @@ class initFrame(wx.Frame):
         # self.serial.__del__()
         # self.serial = None
 
-    def pause(self, event):
-        self.pausing = True
+    def stop(self, event):
+        self.pause = True
 
-    def term(self, close=False, event=None):
-        self.stop = True
+    def kill(self, close=False, event=None):
+        self.term = True
         self.thread = None
         self.ch_lst, self.ev_lst = None, None
         if self.serial is not None:
@@ -446,25 +396,10 @@ class initFrame(wx.Frame):
             self.paras[1] = 0
 
     def close(self, event):
-        self.stop = True
+        self.term = True
         time.sleep(1)
-        self.term(event, True)
+        self.kill(event, True)
         self.Destroy()
-    #
-    # def func(self, event):
-    #     x1, y1 = event.GetPosition()
-    #     if 359 < x1 < 697 and 379 < y1 < 601:
-    #         if event.Dragging():
-    #             self.groups[self.grp_n].SetPosition((x1 - 30, y1 - 10))
-    #             x0, y0 = self.conductor.GetPosition()
-    #             grp = self.groups[self.grp_n].GetLabel()
-    #             rou = np.sqrt((x1 - x0)**2 + (y1 - y0)**2)
-    #             alpha = int(np.arccos((x1 - x0) / rou)/np.pi*180 + 0.5)
-    #             if y1 > y0 + 10 and x1 < x0:
-    #                 alpha = 180
-    #             if y1 > y0 + 10 and x1 > x0 + 10:
-    #                 alpha = 0
-    #             self.coords[grp] = [alpha, rou]
 
 
 def gui():
