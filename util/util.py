@@ -51,25 +51,26 @@ def text_default_value(text, data_type, default):
 
 class SliderFrame(wx.Frame):
 
-    def __init__(self, call, val=100, parent=None, fid=-1):
+    def __init__(self, call, val, max_, scale=1, parent=None, fid=-1):
         wx.Frame.__init__(self, parent, fid, '', size=(245, 140),
                           style=wx.CAPTION | wx.CLOSE_BOX | wx.MINIMIZE_BOX)
         self.Center()
         self.call = call
         self.panel = wx.Panel(self)
-        self.slider = wx.Slider(self.panel, value=val, id=-1, minValue=0, maxValue=200, pos=(10, 20), size=(210, -1))
-        self.sl_txt = wx.StaticText(self.panel, -1, label=str(val/100), pos=(90, 50), size=(50, 25), style=wx.TE_CENTER)
+        self.slider = wx.Slider(self.panel, value=val*scale, id=-1, minValue=0, maxValue=max_*scale, pos=(10, 20), size=(210, -1))
+        self.sl_txt = wx.StaticText(self.panel, -1, label=str(val), pos=(90, 50), size=(50, 25), style=wx.TE_CENTER)
         self.min = wx.StaticText(self.panel, id=1, label='0', pos=(20, 50), size=(50, 25), style=wx.TE_LEFT)
-        self.max = wx.StaticText(self.panel, id=2, label='2', pos=(160, 50), size=(50, 25), style=wx.TE_RIGHT)
+        self.max = wx.StaticText(self.panel, id=2, label=str(max_), pos=(160, 50), size=(50, 25), style=wx.TE_RIGHT)
+        self.scale = scale
         self.sl_val = val
 
         self.slider.Bind(wx.EVT_SLIDER, self.slider_fun)
 
     def slider_fun(self, event):
         rb = event.GetEventObject()
-        self.sl_val = rb.GetValue()
-        self.sl_txt.SetLabel(str(self.sl_val/100))
-        self.call(self.sl_val/100)
+        self.sl_val = rb.GetValue()/self.scale
+        self.sl_txt.SetLabel(str(self.sl_val))
+        self.call(self.sl_val)
 
 
 class MPL_Panel(wx.Panel):

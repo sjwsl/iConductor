@@ -44,6 +44,7 @@ class initFrame(wx.Frame):
         self.cbb_5 = None
         self.frame_init()
 
+        self.beat = 900
         set_lst_a = [' COM3']
         set_lst_b = [' 9600', ' 19200', ' 28800', ' 57600', ' 115200']
         self.set_a = wx.ComboBox(self, -1, pos=(130, 117), size=(80, 30), value=' COM3',
@@ -60,6 +61,8 @@ class initFrame(wx.Frame):
         self.btn_4.Bind(wx.EVT_LEFT_DOWN, self.kill)
         self.btn_5 = wx.Button(self, id=-1, label='暂停', pos=(520, 113), size=(60, 30))
         self.btn_5.Bind(wx.EVT_LEFT_DOWN, self.stop)
+        self.btn_6 = wx.Button(self, id=-1, label='节拍 : '+str(self.beat), pos=(600, 113), size=(80, 30))
+        self.btn_6.Bind(wx.EVT_LEFT_DOWN, self.ctr)
         self.conductor = wx.StaticText(self.panel, -1, label='我', pos=(160, 170), size=(20, 20))
         wx.StaticLine(self, pos=(60, 250), size=(260, -1), style=wx.SL_HORIZONTAL)
         wx.StaticLine(self, pos=(360, 280), size=(330, -1), style=wx.SL_HORIZONTAL)
@@ -136,13 +139,22 @@ class initFrame(wx.Frame):
     def sld(self, event):
         grp = (self.cbb_5.GetValue()).strip()
         val = self.volume[grp]
-        frame = util.SliderFrame(parent=None, fid=-1, val=val * 100, call=self.callback)
+        frame = util.SliderFrame(parent=None, fid=-1, val=val, max_=2, scale=100, call=self.sld_callback)
         frame.Show()
 
-    def callback(self, val):
+    def sld_callback(self, val):
         self.btn_1.SetLabel(str(val))
         grp = (self.cbb_5.GetValue()).strip()
         self.volume[grp] = int(val)
+
+    def ctr(self, event):
+        frame = util.SliderFrame(parent=None, fid=-1, val=self.beat, max_=2000, call=self.ctr_callback)
+        frame.Show()
+
+    def ctr_callback(self, val):
+        str_ = '节拍 : ' + str(val).split('.')[0]
+        self.btn_6.SetLabel(str_)
+        self.beat = val
 
     def rmv(self, event):
         if len(list(self.volume)) == 1:
@@ -199,7 +211,7 @@ class initFrame(wx.Frame):
         self.orche.create(confs_)
         print(self.orche.ilist)
         self.ev_lst = sorted(self.ev_lst)
-        span = self.ev_lst[-1][0] / 800
+        span = self.ev_lst[-1][0] / self.beat
         print('play_pre.4')
         self.thread = threading.Thread(target=self.mon, args=(span,))
         self.player = threading.Thread(target=self.play_music, args=())
@@ -231,7 +243,7 @@ class initFrame(wx.Frame):
                 if self.term:
                     return
             if event[0] > last:
-                time.sleep((event[0] - last) / 1000)
+                time.sleep((event[0] - last) / self.beat)
                 last = event[0]
                 self.gau_1.SetValue(last / span * 100)
             player.note_on(event[1], event[2], channel=event[3])
