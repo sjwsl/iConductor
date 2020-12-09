@@ -7,11 +7,14 @@ from util import util, song, tree
 
 import serial
 import threading
+import sys
+import signal
 
 
 class initFrame(wx.Frame):
 
     def __init__(self, parent=None, fid=-1):
+
         wx.Frame.__init__(self, parent, fid, '人-机交互音乐指挥系统 v0.3', size=(770, 630),
                           style=wx.CAPTION | wx.CLOSE_BOX | wx.MINIMIZE_BOX)
         self.Center()
@@ -98,6 +101,11 @@ class initFrame(wx.Frame):
         self.orche = None
         self.angle = 90
         # self.display()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for note in range(0, 128):
+            for chan in range(0, 16):
+                self.output.note_off(note, channel=chan)
 
     def clear(self):
         for gauge in self.gauges:
