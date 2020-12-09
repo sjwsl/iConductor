@@ -70,6 +70,8 @@ class initFrame(wx.Frame):
         self.btn_3.Bind(wx.EVT_LEFT_DOWN, self.play)
         self.btn_4 = wx.Button(self, id=-1, label='中止', pos=(440, 113), size=(60, 30))
         self.btn_4.Bind(wx.EVT_LEFT_DOWN, self.term)
+        self.btn_4 = wx.Button(self, id=-1, label='暂停', pos=(520, 113), size=(60, 30))
+        self.btn_4.Bind(wx.EVT_LEFT_DOWN, self.pause)
         self.conductor = wx.StaticText(self.panel, -1, label='我', pos=(160, 170), size=(20, 20))
         self.groups = []
         self.panel_init()
@@ -86,12 +88,13 @@ class initFrame(wx.Frame):
         self.gau_2 = wx.Gauge(self, -1, 127, pos=(440, 240), size=(250, 20), style=wx.GA_HORIZONTAL)
 
         pygame.midi.init()
-        self.output = pygame.midi.Output(1)
+        self.output = pygame.midi.Output(pygame.midi.get_default_output_id())
         self.thread, self.player, self.serial = None, None, None
         self.ch_lst, self.ev_lst = None, None
         self.btn_5, self.btn_6 = None, None
         self.gauges, self.statics = [], []
-        self.stop = False
+        self.stop = True
+        self.pausing = False
         self.orche = None
         self.angle = 90
         # self.display()
@@ -243,10 +246,18 @@ class initFrame(wx.Frame):
     #     self.display()
 
     def play(self, event):
-        self.play_pre(event)
-        self.thread.start()
-        time.sleep(2)
-        self.player.start()
+
+        if not self.stop and self.pausing:
+            self.pausing = False
+            return
+
+        if self.stop:
+            self.pausing = False
+            self.stop = False
+            self.play_pre(event)
+            self.thread.start()
+            time.sleep(2)
+            self.player.start()
 
     def play_pre(self, event):
         self.thread, self.serial = None, None
@@ -298,9 +309,20 @@ class initFrame(wx.Frame):
                 for note in range(0, 128):
                     for chan in range(0, 16):
                         player.note_off(note, channel=chan)
-                self.term()
-                self.stop = False
+                # self.stop = False
                 return
+
+            if self.pausing:
+                for note in range(0, 128):
+                    for chan in range(0, 16):
+                        player.note_off(note, channel=chan)
+                while self.pausing:
+                    time.sleep(0.01)
+                    if self.stop:
+                        return
+                if self.stop:
+                    return
+
             if event[0] > last:
                 time.sleep((event[0] - last) / 800)
                 last = event[0]
@@ -395,6 +417,9 @@ class initFrame(wx.Frame):
         # self.serial.close()  # zhushi
         # self.serial.__del__()
         # self.serial = None
+
+    def pause(self, event):
+        self.pausing = True
 
     def term(self, close=False, event=None):
         self.stop = True
