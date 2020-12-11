@@ -34,7 +34,7 @@ class InstrumentContainer:
         for instrument in self.ilist:
             if instrument.c < c - 20 or instrument.c > c + 20:
                 continue
-            if instrument.r < r - 30 or instrument.r > r + 30:
+            if instrument.r < r - 100 or instrument.r > r + 100:
                 continue
             ask_list += [instrument.name]
         return ask_list
@@ -58,5 +58,5 @@ def test():
         else:
             print(", ", end='')
 
-
-test()
+#
+# test()

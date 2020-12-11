@@ -25,9 +25,6 @@ class initFrame(wx.Frame):
         img_1 = img_1.ConvertToBitmap()
         wx.StaticBitmap(self, -1, bitmap=img_1, pos=(210, 0))
 
-        self.paras = list()
-        self.paras.append(1.0)
-        self.paras.append(0.0)
         self.volume = dict()
         self.panel = wx.Panel(self, pos=(366, 300), size=(330, 220))
         self.graph = util.MPL_Panel(self.panel, pos=(0, 0), size=(330, 220))
@@ -61,7 +58,7 @@ class initFrame(wx.Frame):
         self.btn_4.Bind(wx.EVT_LEFT_DOWN, self.kill)
         self.btn_5 = wx.Button(self, id=-1, label='暂停', pos=(520, 113), size=(60, 30))
         self.btn_5.Bind(wx.EVT_LEFT_DOWN, self.stop)
-        self.btn_6 = wx.Button(self, id=-1, label='节拍 : '+str(self.beat), pos=(600, 113), size=(80, 30))
+        self.btn_6 = wx.Button(self, id=-1, label='节拍 : ' + str(self.beat), pos=(600, 113), size=(80, 30))
         self.btn_6.Bind(wx.EVT_LEFT_DOWN, self.ctr)
         self.conductor = wx.StaticText(self.panel, -1, label='我', pos=(160, 170), size=(20, 20))
         wx.StaticLine(self, pos=(60, 250), size=(260, -1), style=wx.SL_HORIZONTAL)
@@ -76,7 +73,7 @@ class initFrame(wx.Frame):
         self.output = pygame.midi.Output(pygame.midi.get_default_output_id())
         self.thread, self.player, self.serial = None, None, None
         self.ch_lst, self.ev_lst = None, None
-        self.chan_1, self.chan_2 = dict(), dict()
+        self.chan_0, self.chan_1, self.chan_2 = dict(), dict(), dict()
         self.gauges, self.statics = [], []
         self.groups = []
         self.panel_init()
@@ -108,9 +105,7 @@ class initFrame(wx.Frame):
             pos_y = 170 - pos_r * np.sin(pos_a)
             self.groups.append(wx.StaticText(self.panel, -1, label=instr, pos=(pos_x, pos_y), size=(60, 20)))
             # zhu: yuan lai zhe li shi alpha-rho zuo biao xian zai shi rho-alpha zuo biao
-            print(i, '+', instr)
-            self.chan_1[instr], self.chan_2[i] = i, 2*i
-        print(self.chan_1, self.chan_2)
+            self.chan_0[i], self.chan_1[instr], self.chan_2[i] = instr, i, 2 * i
 
     def frame_init(self):
         music = (self.cbb_2.GetValue()).strip()
@@ -127,9 +122,9 @@ class initFrame(wx.Frame):
         instrs = list(self.volume)
         for i, instr in enumerate(instrs):
             self.statics.append(wx.StaticText(self, id=-1, label=instr, pos=(60, 280 + 40 * i), size=(60, 20)))
-            self.gauges.append(wx.Gauge(self, id=2*i, range=200, pos=(130, 278 + 40 * i), size=(190, 9)))
-            self.gauges.append(wx.Gauge(self, id=2*i+1, range=127, pos=(130, 292 + 40 * i), size=(190, 9)))
-            self.chan_2[self.chan_1[instr]] = 2*i
+            self.gauges.append(wx.Gauge(self, id=2 * i, range=200, pos=(130, 278 + 40 * i), size=(190, 9)))
+            self.gauges.append(wx.Gauge(self, id=2 * i + 1, range=127, pos=(130, 292 + 40 * i), size=(190, 9)))
+            self.chan_2[self.chan_1[instr]] = 2 * i
 
     def volume_func(self, event):
         grp = (self.cbb_5.GetValue()).strip()
@@ -145,7 +140,7 @@ class initFrame(wx.Frame):
     def sld_callback(self, val):
         self.btn_1.SetLabel(str(val))
         grp = (self.cbb_5.GetValue()).strip()
-        self.volume[grp] = int(val)
+        self.volume[grp] = float(val)
 
     def ctr(self, event):
         frame = util.SliderFrame(parent=None, fid=-1, val=self.beat, max_=2000, call=self.ctr_callback)
@@ -178,14 +173,13 @@ class initFrame(wx.Frame):
             self.pause = False
             return
         if self.term:
-            self.pause = False
-            self.term = False
             self.play_pre(event)
             self.thread.start()
             time.sleep(2)
             self.player.start()
 
     def play_pre(self, event):
+        self.term, self.pause = False, False
         self.thread, self.serial = None, None
         self.ch_lst, self.ev_lst = None, None
         self.angle = 90
@@ -213,6 +207,7 @@ class initFrame(wx.Frame):
         self.ev_lst = sorted(self.ev_lst)
         span = self.ev_lst[-1][0] / self.beat
         print('play_pre.4')
+        self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
         self.thread = threading.Thread(target=self.mon, args=(span,))
         self.player = threading.Thread(target=self.play_music, args=())
         print('play_pre.5')
@@ -246,100 +241,89 @@ class initFrame(wx.Frame):
                 time.sleep((event[0] - last) / self.beat)
                 last = event[0]
                 self.gau_1.SetValue(last / span * 100)
-            player.note_on(event[1], event[2], channel=event[3])
-            self.gau_2.SetValue(event[1])
+            val = int(event[2] * self.volume[self.chan_0[event[3]]])
+            player.note_on(event[1], min(val, 127), channel=event[3])
+            self.gau_2.SetValue(event[2])
             gau_1 = wx.FindWindowById(id=self.chan_2[event[3]])
-            gau_2 = wx.FindWindowById(id=self.chan_2[event[3]]+1)
-            gau_1.SetValue(1 * 100)
-            gau_2.SetValue(event[1])
+            gau_2 = wx.FindWindowById(id=self.chan_2[event[3]] + 1)
+            gau_1.SetValue(self.volume[self.chan_0[event[3]]] * 100)
+            gau_2.SetValue(event[2])
+        self.term = True
 
     def mon(self, span):
-        # self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
-        t0, t1 = time.time(), 0.0
-        tmp = []
-        ini = dict()
-        for i in list(self.volume):
-            ini[i] = self.volume[i]
-        while t1 < 2.0:
+        start, dura = time.time(), 0.0
+        lst_h, lst_v, lst_a = [], [], []
+        while dura < 2.0:
             if self.serial is not None:
                 str_ = self.serial.readline()
                 try:
                     dic = eval(str_)
-                    tmp.append(dic['angle'])
+                    lst_h.append(float(dic['acc_tot']))
+                    lst_v.append(float(dic['acc_z']))
+                    lst_a.append(float(dic['angle']))
                 except Exception:
                     pass
-            t1 = time.time() - t0
-        # self.angle = int((max(tmp) + min(tmp))/2)  # zhushi
+            dura = time.time() - start
+        acc_h = np.array(lst_h).mean()
+        acc_v = np.array(lst_v).mean()
+        self.angle = np.array(lst_a).mean()  # zhushi
         print('play_mon.1')
-        o_lt, n_lt = list(self.volume), []
-        k_di = dict()
-        t0 = time.time()
-        self.paras[1], t1 = 1, 0
-        kk_2 = [0, 0, 0, 0, 0]
-        print('play_mon.2')
-        while t1 < 101:
-            # print('play_mon.21')
-            # for i, static in enumerate(self.statics):
-            #     label = static.GetLabel()
-            #     val = self.volume[label]  # * self.paras[0]
-            #     self.gauges[i].SetValue(min(val, 126))
-            k_1 = 1.0
-            # print('play_mon.22')
-            if self.serial is not None:
+        acc_hs = list(np.ones(6,) * acc_h)
+        acc_vs = list(np.ones(6,) * acc_v)
+        while not self.term and not self.pause:
+            try:
                 str_ = self.serial.readline()
-                try:
-                    dic = eval(str_)
-                    k_1 = max(dic['acc_tot'], 1)
-                    k_2 = dic['acc_z']
-                    k_3 = int(dic['angle']) - self.angle + 80
-                    k_4 = dic['curvature'] + 180
-                    k_1 = 1 + np.log(1 + np.log(1 + np.log(k_1)))
-                    kk_2.append(k_2)
-                    kk_2.pop(0)
-                    self.paras[0] = max(kk_2) / 100 + 0.6
-                    # print(k_4)
-                    if k_4 > 0:
-                        for i in o_lt:
-                            try:
-                                self.volume[i] = ini[i]
-                            except Exception:
-                                pass
-                        for i in o_lt:
-                            k_di[i] = 1
-                        L, R = max(k_3 - 20, 0), min(k_3 + 20, 180)
-                        print(L, R)
-                        # self.tree.query(L, R)
-                        # n_lt = self.tree.A
-                        # print(self.tree.A, L, R)
-                        for i in n_lt:
-                            k_di[i] = k_4 / 10 + 1
-                        for i in n_lt:
-                            self.volume[i] = min(self.volume[i] * k_di[i], 126)
-                        o_lt = n_lt
-                        print(n_lt)
-                    # else:
-                    #     print('?')
-                    #     for i in list(ini):
-                    #         try:
-                    #             self.volume[i] = ini[i]
-                    #         except Exception:
-                    #             pass
-                except Exception:
-                    pass
-            # print('play_mon.23')
-            interval = (time.time() - t0 - self.paras[1]) * k_1
-            self.paras[1] = self.paras[1] + interval
-            # self.paras[1] = time.time() - t0
-            t1 = int(self.paras[1] / span * 100)
-            # print('play_mon.24')
-        self.paras[1] = 0
+                dic = eval(str_)
+                acc_h = dic['acc_tot']
+                acc_v = dic['acc_z']
+                angle = dic['angle'] - self.angle + 90
+                curve = dic['curvature'] + 180
+                acc_hs.append(acc_v), acc_hs.pop(0)
+                acc_vs.append(acc_h), acc_vs.pop(0)
+                val_p = np.array(acc_hs).std()
+                vel_p = np.array(acc_vs).std()
+                print(val_p, vel_p, angle, curve)
+                # k_1 = 1 + np.log(1 + np.log(1 + np.log(k_1)))
+                # kk_2.append(k_2)
+                # kk_2.pop(0)
+                # self.paras[0] = max(kk_2) / 100 + 0.6
+                # # print(k_4)
+                # if k_4 > 0:
+                #     for i in o_lt:
+                #         try:
+                #             self.volume[i] = ini[i]
+                #         except Exception:
+                #             pass
+                #     for i in o_lt:
+                #         k_di[i] = 1
+                #     L, R = max(k_3 - 20, 0), min(k_3 + 20, 180)
+                #     print(L, R)
+                #     # self.tree.query(L, R)
+                #     # n_lt = self.tree.A
+                #     # print(self.tree.A, L, R)
+                #     for i in n_lt:
+                #         k_di[i] = k_4 / 10 + 1
+                #     for i in n_lt:
+                #         self.volume[i] = min(self.volume[i] * k_di[i], 126)
+                #     o_lt = n_lt
+                #     print(n_lt)
+                # else:
+                #     print('?')
+                #     for i in list(ini):
+                #         try:
+                #             self.volume[i] = ini[i]
+                #         except Exception:
+                #             pass
+            except Exception:
+                pass
         print('play_mon.3')
         for gauge in self.gauges:
             gauge.SetValue(0)
         self.gau_2.SetValue(0)
-        # self.serial.close()  # zhushi
-        # self.serial.__del__()
-        # self.serial = None
+        if self.serial is not None:
+            self.serial.close()  # zhushi
+            self.serial.__del__()
+            self.serial = None
 
     def stop(self, event):
         self.pause = True
@@ -357,7 +341,6 @@ class initFrame(wx.Frame):
                 gauge.SetValue(0)
             self.gau_1.SetValue(0)
             self.gau_2.SetValue(0)
-            self.paras[1] = 0
 
     def close(self, event):
         self.term = True
