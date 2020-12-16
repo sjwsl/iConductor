@@ -215,8 +215,6 @@ class initFrame(wx.Frame):
     def play_music(self):
         player = self.output
         for ch in self.ch_lst:
-            ins = ch[1].split('_')[-1]
-            idx = util.instr_2[ins] - 1
             player.set_instrument(idx, channel=ch[0])
         last = 0
         span = self.ev_lst[-1][0]
