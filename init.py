@@ -30,7 +30,7 @@ class initFrame(wx.Frame):
         self.graph = util.MPL_Panel(self.panel, pos=(0, 0), size=(330, 220))
 
         music_lst_1 = [' 所有', ]
-        music_lst_2 = [' 天空之城', ]
+        music_lst_2 = [' 我心永恒', ]
         wx.StaticText(self, -1, label='设备 :', pos=(60, 120), size=(40, 30))
         wx.StaticText(self, -1, label='作者 :', pos=(60, 160), size=(60, 30))
         wx.StaticText(self, -1, label='曲目 :', pos=(60, 200), size=(60, 30))
@@ -215,6 +215,8 @@ class initFrame(wx.Frame):
     def play_music(self):
         player = self.output
         for ch in self.ch_lst:
+            ins = ch[1].split('_')[-1]
+            idx = util.instr_2[ins] - 1
             player.set_instrument(idx, channel=ch[0])
         last = 0
         span = self.ev_lst[-1][0]

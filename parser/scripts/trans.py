@@ -1,11 +1,12 @@
-import pygame.midi
 import time
 
-events = list()
+events = dict()
 
 last = 0
 
 chan = -1
+
+ins = ['1_钢琴', '1_无品贝司', '2_钢琴', '3_钢琴', '1_弦',  '2_弦', '1_方波', '1_钢鼓']
 
 while True:
     try:
@@ -22,9 +23,10 @@ while True:
 
     tick = tick + last
     last = tick
-    events.append((tick, note, vol, chan))
-
-events.sort()
+    try:
+        events[ins[chan]].append((tick, note, vol, chan))
+    except KeyError:
+        events[ins[chan]] = []
 
 print(events)
 
