@@ -8,8 +8,7 @@ int main() {
     if (s.find("midi.Track(") != string::npos) {
       cout << endl;
       continue;
-    }
-    if (s.find("NoteOnEvent") != string::npos) {
+    } else if (s.find("NoteOnEvent") != string::npos) {
       auto pos = s.find("tick");
       pos = pos + 5;
       while (isdigit(s[pos])) {
@@ -27,8 +26,7 @@ int main() {
         cout << s[pos++];
       }
       cout << endl;
-    }
-    if (s.find("NoteOffEvent") != string::npos) {
+    } else if (s.find("NoteOffEvent") != string::npos) {
       auto pos = s.find("tick");
       pos = pos + 5;
       while (isdigit(s[pos])) {
@@ -43,6 +41,13 @@ int main() {
       cout << " ";
       cout << 0;
       cout << endl;
+    } else if (s.find("tick") != string::npos) {
+      auto pos = s.find("tick");
+      pos = pos + 5;
+      while (isdigit(s[pos])) {
+        cout << s[pos++];
+      }
+      cout << " -1 -1" << endl;
     }
   }
 }

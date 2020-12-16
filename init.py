@@ -242,7 +242,8 @@ class initFrame(wx.Frame):
                 last = event[0]
                 self.gau_1.SetValue(last / span * 100)
             val = int(event[2] * self.volume[self.chan_0[event[3]]])
-            player.note_on(event[1], min(val, 127), channel=event[3])
+            if val != -1:
+                player.note_on(event[1], min(val, 127), channel=event[3])
             self.gau_2.SetValue(event[2])
             gau_1 = wx.FindWindowById(id=self.chan_2[event[3]])
             gau_2 = wx.FindWindowById(id=self.chan_2[event[3]] + 1)
