@@ -23,6 +23,10 @@ while True:
 
     tick = tick + last
     last = tick
+
+    if vol == -1:
+        continue
+
     try:
         events[ins[chan]].append((tick, note, vol, chan))
     except KeyError:
