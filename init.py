@@ -25,12 +25,8 @@ class initFrame(wx.Frame):
         img_1 = img_1.ConvertToBitmap()
         wx.StaticBitmap(self, -1, bitmap=img_1, pos=(210, 0))
 
-        self.volume = dict()
-        self.panel = wx.Panel(self, pos=(366, 300), size=(330, 220))
-        self.graph = util.MPL_Panel(self.panel, pos=(0, 0), size=(330, 220))
-
         music_lst_1 = [' 所有', ]
-        music_lst_2 = [' 我心永恒', ]
+        music_lst_2 = [' 天空之城', ' 我心永恒', ]
         wx.StaticText(self, -1, label='设备 :', pos=(60, 120), size=(40, 30))
         wx.StaticText(self, -1, label='作者 :', pos=(60, 160), size=(60, 30))
         wx.StaticText(self, -1, label='曲目 :', pos=(60, 200), size=(60, 30))
@@ -38,8 +34,8 @@ class initFrame(wx.Frame):
                                  choices=music_lst_1, style=wx.CB_SORT | wx.CB_READONLY)
         self.cbb_2 = wx.ComboBox(self, -1, pos=(130, 197), size=(190, 30), value=music_lst_2[0],
                                  choices=music_lst_2, style=wx.CB_READONLY)  # wx.CB_SORT |
+        self.cbb_2.Bind(wx.EVT_COMBOBOX, self.music_init)
         self.cbb_5 = None
-        self.frame_init()
 
         self.beat = 900
         set_lst_a = [' COM3']
@@ -60,7 +56,6 @@ class initFrame(wx.Frame):
         self.btn_5.Bind(wx.EVT_LEFT_DOWN, self.stop)
         self.btn_6 = wx.Button(self, id=-1, label='节拍 : ' + str(self.beat), pos=(600, 113), size=(80, 30))
         self.btn_6.Bind(wx.EVT_LEFT_DOWN, self.ctr)
-        self.conductor = wx.StaticText(self.panel, -1, label='我', pos=(160, 170), size=(20, 20))
         wx.StaticLine(self, pos=(60, 250), size=(260, -1), style=wx.SL_HORIZONTAL)
         wx.StaticLine(self, pos=(360, 280), size=(330, -1), style=wx.SL_HORIZONTAL)
         wx.StaticText(self, -1, label='演奏进度 :', pos=(365, 200), size=(60, 20))
@@ -75,34 +70,39 @@ class initFrame(wx.Frame):
         self.ch_lst, self.ev_lst = None, None
         self.chan_0, self.chan_1, self.chan_2 = dict(), dict(), dict()
         self.gauges, self.statics = [], []
+        self.panel, self.graph = None, None
+        self.volume = dict()
         self.groups = []
-        self.panel_init()
+        self.angle = 90
         self.term = True
         self.pause = False
         self.orche = None
-        self.angle = 90
-        self.display()
+        self.music_init()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         for note in range(0, 128):
             for chan in range(0, 16):
                 self.output.note_off(note, channel=chan)
 
-    def clear(self):
-        for gauge in self.gauges:
-            gauge.Destroy()
-        for static in self.statics:
-            static.Destroy()
-        self.gauges, self.statics = [], []
+    def music_init(self, event=None):
+        self.frame_init()
+        self.panel_init()
+        self.gauge_func()
 
     def panel_init(self):
+        for group in self.groups:
+            group.Destroy()
+        self.panel = wx.Panel(self, pos=(366, 300), size=(330, 220))
+        self.panel.SetBackgroundColour((255, 255, 255))
+        wx.StaticText(self.panel, -1, label='我', pos=(160, 170), size=(20, 20))
+        self.groups = []
         music = (self.cbb_2.GetValue()).strip()
         confs = song.songs[music]['confs']
         for i, instr in enumerate(list(confs)):
             pos_r = confs[instr][0]
             pos_a = confs[instr][1] / 180 * np.pi
-            pos_x = 160 + pos_r * np.cos(pos_a)
-            pos_y = 170 - pos_r * np.sin(pos_a)
+            pos_x = 170 + pos_r * np.cos(pos_a) - 20
+            pos_y = 170 - pos_r * np.sin(pos_a) - 10
             self.groups.append(wx.StaticText(self.panel, -1, label=instr, pos=(pos_x, pos_y), size=(60, 20)))
             # zhu: yuan lai zhe li shi alpha-rho zuo biao xian zai shi rho-alpha zuo biao
             self.chan_0[i], self.chan_1[instr], self.chan_2[i] = instr, i, 2 * i
@@ -110,15 +110,23 @@ class initFrame(wx.Frame):
     def frame_init(self):
         music = (self.cbb_2.GetValue()).strip()
         confs = song.songs[music]['confs']
+        self.volume = dict()
         for conf in list(confs):
             self.volume[conf] = 1
+        print(self.volume)
         wx.StaticText(self, -1, label='声道 :', pos=(365, 160), size=(40, 30))
+        if self.cbb_5 is not None:
+            self.cbb_5.Destroy()
         self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 157), size=(190, 30), value=' ' + list(self.volume)[0],
                                  choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
         self.cbb_5.Bind(wx.EVT_COMBOBOX, self.volume_func)
 
-    def display(self):
-        self.clear()
+    def gauge_func(self):
+        for gauge in self.gauges:
+            gauge.Destroy()
+        for static in self.statics:
+            static.Destroy()
+        self.gauges, self.statics = [], []
         instrs = list(self.volume)
         for i, instr in enumerate(instrs):
             self.statics.append(wx.StaticText(self, id=-1, label=instr, pos=(60, 280 + 40 * i), size=(60, 20)))
@@ -166,7 +174,7 @@ class initFrame(wx.Frame):
                 grp_st = self.groups.pop(i)
                 grp_st.Destroy()
                 break
-        self.display()
+        self.gauge_func()
 
     def play(self, event):
         if not self.term and self.pause:
@@ -207,17 +215,22 @@ class initFrame(wx.Frame):
         self.ev_lst = sorted(self.ev_lst)
         span = self.ev_lst[-1][0] / self.beat
         print('play_pre.4')
-        # self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
+        self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
         self.thread = threading.Thread(target=self.mon, args=(span,))
         self.player = threading.Thread(target=self.play_music, args=())
         print('play_pre.5')
 
     def play_music(self):
+        print(len(self.ev_lst))
+        print(self.ev_lst[-1][0])
+        print(self.chan_0, self.chan_1, self.chan_2)
         player = self.output
         for ch in self.ch_lst:
             ins = ch[1].split('_')[-1]
             idx = util.instr_2[ins] - 1
             player.set_instrument(idx, channel=ch[0])
+            gau = wx.FindWindowById(id=self.chan_2[ch[0]])
+            gau.SetValue(self.volume[self.chan_0[ch[0]]] * 100)
         last = 0
         span = self.ev_lst[-1][0]
         for event in self.ev_lst:
@@ -269,8 +282,8 @@ class initFrame(wx.Frame):
         acc_v = np.array(lst_v).mean()
         self.angle = np.array(lst_a).mean()  # zhushi
         print('play_mon.1')
-        acc_hs = list(np.ones(6,) * acc_h)
-        acc_vs = list(np.ones(6,) * acc_v)
+        acc_vh = list(np.zeros(6,))
+        acc_hv = list(np.zeros(6,))
         while not self.term and not self.pause:
             try:
                 str_ = self.serial.readline()
@@ -279,11 +292,11 @@ class initFrame(wx.Frame):
                 acc_v = dic['acc_z']
                 angle = dic['angle'] - self.angle + 90
                 curve = dic['curvature'] + 180
-                acc_hs.append(acc_v), acc_hs.pop(0)
-                acc_vs.append(acc_h), acc_vs.pop(0)
-                val_p = np.array(acc_hs).std()
-                vel_p = np.array(acc_vs).std()
-                print(val_p, vel_p, angle, curve)
+                acc_vh.append(acc_v ** 2/acc_h), acc_vh.pop(0)
+                acc_hv.append(acc_h ** 2/acc_v), acc_hv.pop(0)
+                val_p = np.log(np.array(acc_vh).var()+1)  # normal 0 -> 0, upper inf -> ln(inf)
+                vel_p = np.log(np.array(acc_hv).var()+1)  # normal 0 -> 0, upper inf -> ln(inf)
+                print(str(round(val_p, 4)).ljust(7), str(round(vel_p, 4)).ljust(7))
                 # k_1 = 1 + np.log(1 + np.log(1 + np.log(k_1)))
                 # kk_2.append(k_2)
                 # kk_2.pop(0)
