@@ -71,7 +71,7 @@ class initFrame(wx.Frame):
         self.chan_0, self.chan_1, self.chan_2 = dict(), dict(), dict()
         self.gauges, self.statics = [], []
         self.panel, self.graph = None, None
-        self.volume = dict()
+        self.value = dict()
         self.groups = []
         self.angle = 90
         self.term = True
@@ -110,15 +110,15 @@ class initFrame(wx.Frame):
     def frame_init(self):
         music = (self.cbb_2.GetValue()).strip()
         confs = song.songs[music]['confs']
-        self.volume = dict()
+        self.value = dict()
         for conf in list(confs):
-            self.volume[conf] = 1
-        print(self.volume)
+            self.value[conf] = 1
+        print(self.value)
         wx.StaticText(self, -1, label='声道 :', pos=(365, 160), size=(40, 30))
         if self.cbb_5 is not None:
             self.cbb_5.Destroy()
-        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 157), size=(190, 30), value=' ' + list(self.volume)[0],
-                                 choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
+        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 157), size=(190, 30), value=' ' + list(self.value)[0],
+                                 choices=util.str_list_indent(list(self.value)), style=wx.CB_READONLY)
         self.cbb_5.Bind(wx.EVT_COMBOBOX, self.volume_func)
 
     def gauge_func(self):
@@ -127,7 +127,7 @@ class initFrame(wx.Frame):
         for static in self.statics:
             static.Destroy()
         self.gauges, self.statics = [], []
-        instrs = list(self.volume)
+        instrs = list(self.value)
         for i, instr in enumerate(instrs):
             self.statics.append(wx.StaticText(self, id=-1, label=instr, pos=(60, 280 + 40 * i), size=(60, 20)))
             self.gauges.append(wx.Gauge(self, id=2 * i, range=200, pos=(130, 278 + 40 * i), size=(190, 9)))
@@ -136,19 +136,19 @@ class initFrame(wx.Frame):
 
     def volume_func(self, event):
         grp = (self.cbb_5.GetValue()).strip()
-        val = self.volume[grp]
+        val = self.value[grp]
         self.btn_1.SetLabel(str(val))
 
     def sld(self, event):
         grp = (self.cbb_5.GetValue()).strip()
-        val = self.volume[grp]
+        val = self.value[grp]
         frame = util.SliderFrame(parent=None, fid=-1, val=val, max_=2, scale=100, call=self.sld_callback)
         frame.Show()
 
     def sld_callback(self, val):
         self.btn_1.SetLabel(str(val))
         grp = (self.cbb_5.GetValue()).strip()
-        self.volume[grp] = float(val)
+        self.value[grp] = float(val)
 
     def ctr(self, event):
         frame = util.SliderFrame(parent=None, fid=-1, val=self.beat, max_=2000, call=self.ctr_callback)
@@ -160,14 +160,14 @@ class initFrame(wx.Frame):
         self.beat = val
 
     def rmv(self, event):
-        if len(list(self.volume)) == 1:
+        if len(list(self.value)) == 1:
             return
         ins = (self.cbb_5.GetValue()).strip()
-        self.volume.pop(ins)
+        self.value.pop(ins)
         self.cbb_5.Destroy()
-        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 157), size=(190, 30), value=' ' + list(self.volume)[0],
-                                 choices=util.str_list_indent(list(self.volume)), style=wx.CB_READONLY)
-        self.btn_1.SetLabel(str(self.volume[list(self.volume)[0]]))
+        self.cbb_5 = wx.ComboBox(self, -1, pos=(420, 157), size=(190, 30), value=' ' + list(self.value)[0],
+                                 choices=util.str_list_indent(list(self.value)), style=wx.CB_READONLY)
+        self.btn_1.SetLabel(str(self.value[list(self.value)[0]]))
         for i in range(len(self.groups)):
             label = self.groups[i].GetLabel()
             if label == ins:
@@ -199,7 +199,7 @@ class initFrame(wx.Frame):
         confs = song.songs[music]['confs']
         events = song.songs[music]['events']
         confs_ = dict()
-        list_1 = list(self.volume)
+        list_1 = list(self.value)
         list_2 = []
         for ins in list_1:
             confs_[ins] = confs[ins]
@@ -215,7 +215,7 @@ class initFrame(wx.Frame):
         self.ev_lst = sorted(self.ev_lst)
         span = self.ev_lst[-1][0] / self.beat
         print('play_pre.4')
-        # self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
+        self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
         self.thread = threading.Thread(target=self.mon, args=(span,))
         self.player = threading.Thread(target=self.play_music, args=())
         print('play_pre.5')
@@ -223,14 +223,13 @@ class initFrame(wx.Frame):
     def play_music(self):
         print(len(self.ev_lst))
         print(self.ev_lst[-1][0])
-        print(self.chan_0, self.chan_1, self.chan_2)
         player = self.output
         for ch in self.ch_lst:
             ins = ch[1].split('_')[-1]
             idx = util.instr_2[ins] - 1
             player.set_instrument(idx, channel=ch[0])
             gau = wx.FindWindowById(id=self.chan_2[ch[0]])
-            gau.SetValue(self.volume[self.chan_0[ch[0]]] * 100)
+            gau.SetValue(self.value[self.chan_0[ch[0]]] * 100)
         last = 0
         span = self.ev_lst[-1][0]
         for event in self.ev_lst:
@@ -254,14 +253,15 @@ class initFrame(wx.Frame):
                 time.sleep((event[0] - last) / self.beat)
                 last = event[0]
                 self.gau_1.SetValue(last / span * 100)
-            val = int(event[2] * self.volume[self.chan_0[event[3]]])
+            value = self.value[self.chan_0[event[3]]]
+            val = int(event[2] * value)
             if val != -1:
                 player.note_on(event[1], min(val, 127), channel=event[3])
-            self.gau_2.SetValue(event[2])
-            gau_1 = wx.FindWindowById(id=self.chan_2[event[3]])
-            gau_2 = wx.FindWindowById(id=self.chan_2[event[3]] + 1)
-            gau_1.SetValue(self.volume[self.chan_0[event[3]]] * 100)
-            gau_2.SetValue(event[2])
+                self.gau_2.SetValue(event[2])
+                gau_1 = wx.FindWindowById(id=self.chan_2[event[3]])
+                gau_2 = wx.FindWindowById(id=self.chan_2[event[3]] + 1)
+                gau_1.SetValue(value * 100)
+                gau_2.SetValue(min(val, 127))
         self.term = True
 
     def mon(self, span):
@@ -282,52 +282,37 @@ class initFrame(wx.Frame):
         acc_v = np.array(lst_v).mean()
         self.angle = np.array(lst_a).mean()  # zhushi
         print('play_mon.1')
-        acc_vh = list(np.zeros(6,))
-        acc_hv = list(np.zeros(6,))
+        acc_h = list(np.zeros(6,))
+        acc_v = list(np.zeros(6,))
+        val_0, val_e = self.value, 1
         while not self.term and not self.pause:
             try:
                 str_ = self.serial.readline()
                 dic = eval(str_)
-                acc_h = dic['acc_tot']
-                acc_v = dic['acc_z']
+                a_h = dic['acc_tot']
+                a_v = dic['acc_z']
                 angle = dic['angle'] - self.angle + 90
-                curve = dic['curvature'] + 180
-                acc_vh.append(acc_v ** 2/acc_h), acc_vh.pop(0)
-                acc_hv.append(acc_h ** 2/acc_v), acc_hv.pop(0)
-                val_p = np.log(np.array(acc_vh).var()+1)  # normal 0 -> 0, upper inf -> ln(inf)
-                vel_p = np.log(np.array(acc_hv).var()+1)  # normal 0 -> 0, upper inf -> ln(inf)
-                print(str(round(val_p, 4)).ljust(7), str(round(vel_p, 4)).ljust(7))
-                # k_1 = 1 + np.log(1 + np.log(1 + np.log(k_1)))
-                # kk_2.append(k_2)
-                # kk_2.pop(0)
-                # self.paras[0] = max(kk_2) / 100 + 0.6
-                # # print(k_4)
-                # if k_4 > 0:
-                #     for i in o_lt:
-                #         try:
-                #             self.volume[i] = ini[i]
-                #         except Exception:
-                #             pass
-                #     for i in o_lt:
-                #         k_di[i] = 1
-                #     L, R = max(k_3 - 20, 0), min(k_3 + 20, 180)
-                #     print(L, R)
-                #     # self.tree.query(L, R)
-                #     # n_lt = self.tree.A
-                #     # print(self.tree.A, L, R)
-                #     for i in n_lt:
-                #         k_di[i] = k_4 / 10 + 1
-                #     for i in n_lt:
-                #         self.volume[i] = min(self.volume[i] * k_di[i], 126)
-                #     o_lt = n_lt
-                #     print(n_lt)
-                # else:
-                #     print('?')
-                #     for i in list(ini):
-                #         try:
-                #             self.volume[i] = ini[i]
-                #         except Exception:
-                #             pass
+                curve = dic['curvature']
+                acc_h.append(a_h), acc_h.pop(0)
+                acc_v.append(a_v), acc_v.pop(0)
+                acc_h_, acc_v_ = np.array(acc_h), np.array(acc_v)
+                val_s, vel_s = acc_h_.std(), acc_v_.std()
+                acc_h_ = (acc_h_ - acc_h_.mean())/val_s + acc_h_.mean()
+                acc_v_ = (acc_v_ - acc_v_.mean())/vel_s + acc_v_.mean()
+                acc_hv, acc_vh = acc_h_ / acc_v_, acc_v_ / acc_h_
+                val_p, vel_p = np.log(acc_vh.mean()+1), np.log(acc_hv.mean()+1)
+                val_s, vel_s = min(np.log(val_s+1), 1), min(np.log(vel_s+1), 1)
+                print(str(round(val_p, 4)).ljust(7), str(round(vel_p, 4)).ljust(7),
+                      str(round(val_s, 4)).ljust(7), str(round(vel_s, 4)).ljust(7), curve)
+                for key in list(self.value):
+                    val_e = val_e * (1-val_s) + val_p * val_s
+                    val_e = val_0[key] * (1-val_s) + val_e * val_s
+                    self.value[key] = min(val_e, 2)
+                    # val_p is the parameter of horizontal mov, val_s is the weight value
+                    # val_0 is the initial value, val_e is the expected value
+                    # val(t) = (1-a) val(0) + a(1-a) val(t-1) + a^2 val(^t)
+                    # sug: you'd better to maintain a matrix val_es to record N val_e s as a buffer
+
             except Exception:
                 pass
         print('play_mon.3')
