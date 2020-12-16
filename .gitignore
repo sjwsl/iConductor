@@ -3,3 +3,7 @@ venv/*
 .idea/*
 
 util/__pycache__/*
+
+venv/
+
+parser/cmake-build-debug/

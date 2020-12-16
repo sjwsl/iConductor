@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "iostream": "cpp"
+    },
+    "python.formatting.provider": "yapf"
+}

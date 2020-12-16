@@ -207,7 +207,7 @@ class initFrame(wx.Frame):
         self.ev_lst = sorted(self.ev_lst)
         span = self.ev_lst[-1][0] / self.beat
         print('play_pre.4')
-        self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
+        # self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
         self.thread = threading.Thread(target=self.mon, args=(span,))
         self.player = threading.Thread(target=self.play_music, args=())
         print('play_pre.5')
