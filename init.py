@@ -305,12 +305,14 @@ class initFrame(wx.Frame):
                 val_s, vel_s = min(np.log(val_s + 1)/2, 1), min(np.log(vel_s + 1)/4, 1.5)
                 if val_s < 0.2 and vel_s < 0.2 and curve < 60:
                     self.pause = True
-                    pau_t = pau_t if pau_s != 0 else time.time()
+                    pau_t = pau_t if pau_t != 0 else time.time()
                     pau_s = time.time() - pau_t
                     if pau_s > 3:
                         self.term = True
+                        break
                 else:
                     self.pause = False
+                    pau_t, pau_s = 0, 0
                     acc_hv, acc_vh = acc_h_ / acc_v_, acc_v_ / acc_h_
                     acc_hv, acc_vh = acc_hv[~np.isnan(acc_hv)], acc_vh[~np.isnan(acc_vh)]
                     acc_hv, acc_vh = np.insert(acc_hv, -1, 1), np.insert(acc_vh, -1, 1)
