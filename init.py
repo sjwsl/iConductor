@@ -282,37 +282,54 @@ class initFrame(wx.Frame):
         acc_v = np.array(lst_v).mean()
         self.angle = np.array(lst_a).mean()  # zhushi
         print('play_mon.1')
-        acc_h = list(np.zeros(6,))
-        acc_v = list(np.zeros(6,))
-        val_0, val_e = self.value, 1
-        while not self.term and not self.pause:
+        acc_h = list(np.zeros(6, ))
+        acc_v = list(np.zeros(6, ))
+        val_0 = self.value
+        val_m = [[1] * 5] * len(list(val_0))
+        pau_t, pau_s = 0, 0
+        while not self.term:
             try:
                 str_ = self.serial.readline()
                 dic = eval(str_)
                 a_h = dic['acc_tot']
                 a_v = dic['acc_z']
                 angle = dic['angle'] - self.angle + 90
-                curve = dic['curvature']
+                curve = max(dic['curvature'], 0)
                 acc_h.append(a_h), acc_h.pop(0)
                 acc_v.append(a_v), acc_v.pop(0)
                 acc_h_, acc_v_ = np.array(acc_h), np.array(acc_v)
-                val_s, vel_s = acc_h_.std(), acc_v_.std()
-                acc_h_ = (acc_h_ - acc_h_.mean())/val_s + acc_h_.mean()
-                acc_v_ = (acc_v_ - acc_v_.mean())/vel_s + acc_v_.mean()
-                acc_hv, acc_vh = acc_h_ / acc_v_, acc_v_ / acc_h_
-                val_p, vel_p = np.log(acc_vh.mean()+1), np.log(acc_hv.mean()+1)
-                val_s, vel_s = min(np.log(val_s+1), 1), min(np.log(vel_s+1), 1)
-                print(str(round(val_p, 4)).ljust(7), str(round(vel_p, 4)).ljust(7),
-                      str(round(val_s, 4)).ljust(7), str(round(vel_s, 4)).ljust(7), curve)
-                for key in list(self.value):
-                    val_e = val_e * (1-val_s) + val_p * val_s
-                    val_e = val_0[key] * (1-val_s) + val_e * val_s
-                    self.value[key] = min(val_e, 2)
-                    # val_p is the parameter of horizontal mov, val_s is the weight value
-                    # val_0 is the initial value, val_e is the expected value
-                    # val(t) = (1-a) val(0) + a(1-a) val(t-1) + a^2 val(^t)
-                    # sug: you'd better to maintain a matrix val_es to record N val_e s as a buffer
-
+                val_s, vel_s = acc_h_.std() + 0.01, acc_v_.std() + 0.01
+                acc_h_ = (acc_h_ - acc_h_.mean()) / val_s + acc_h_.mean()
+                acc_v_ = (acc_v_ - acc_v_.mean()) / vel_s + acc_v_.mean()
+                val_s, vel_s = max(val_s, 0), max(vel_s, 0)
+                val_s, vel_s = min(np.log(val_s + 1)/2, 1), min(np.log(vel_s + 1)/4, 1.5)
+                if val_s < 0.2 and vel_s < 0.2 and curve < 60:
+                    self.pause = True
+                    pau_t = pau_t if pau_s != 0 else time.time()
+                    pau_s = time.time() - pau_t
+                    if pau_s > 3:
+                        self.term = True
+                else:
+                    self.pause = False
+                    acc_hv, acc_vh = acc_h_ / acc_v_, acc_v_ / acc_h_
+                    acc_hv, acc_vh = acc_hv[~np.isnan(acc_hv)], acc_vh[~np.isnan(acc_vh)]
+                    acc_hv, acc_vh = np.insert(acc_hv, -1, 1), np.insert(acc_vh, -1, 1)
+                    acc_hm, acc_vm = max(acc_vh.mean(), 0), max(acc_hv.mean(), 0)
+                    val_p, vel_p = np.log(acc_hm + 1) * 1.2, np.log(acc_vm + 1)
+                    lst = [] if curve < 60 else self.orche.ask(100, angle)
+                    for i, key in enumerate(list(self.value)):
+                        val_e = np.array(val_m[i]).mean()
+                        val_s = np.round(val_s, 4)
+                        val_a = curve / 60 if key in lst else 1
+                        val_e = val_e * (1 - val_s) + val_p * val_s
+                        val_e = val_0[key] * (1 - val_s) + val_e * val_s * val_a
+                        self.value[key] = min(val_e, 2)
+                        val_m[i].append(val_e), val_m[i].pop(0)
+                        # val_p is the parameter of horizontal mov, val_s is the weight value
+                        # val_0 is the initial value, val_e is the expected value
+                        # val(t) = (1-a) val(0) + a(1-a) avg(val(t-5:t)) + a^2 val(^t)
+                    print(str(round(val_p, 4)).ljust(7), str(round(vel_p, 4)).ljust(7),
+                          str(round(val_s, 4)).ljust(7), str(round(vel_s, 4)).ljust(7), curve, lst)
             except Exception:
                 pass
         print('play_mon.3')
