@@ -32,7 +32,7 @@ class InstrumentContainer:
     def ask(self, r, c):
         ask_list = []
         for instrument in self.ilist:
-            if instrument.c < c - 20 or instrument.c > c + 20:
+            if instrument.c < c - 25 or instrument.c > c + 25:
                 continue
             if instrument.r < r - 100 or instrument.r > r + 100:
                 continue

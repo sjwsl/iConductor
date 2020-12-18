@@ -311,7 +311,7 @@ class initFrame(wx.Frame):
                         self.term = True
                         break
                 else:
-                    self.pause = False
+                    self.pause = self.pause if pau_t == 0 else False
                     pau_t, pau_s = 0, 0
                     acc_hv, acc_vh = acc_h_ / acc_v_, acc_v_ / acc_h_
                     acc_hv, acc_vh = acc_hv[~np.isnan(acc_hv)], acc_vh[~np.isnan(acc_vh)]
