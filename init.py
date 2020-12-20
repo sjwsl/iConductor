@@ -38,9 +38,9 @@ class initFrame(wx.Frame):
         self.cbb_5 = None
 
         self.beat = 900
-        set_lst_a = [' COM3']
+        set_lst_a = [' COM4']
         set_lst_b = [' 9600', ' 19200', ' 28800', ' 57600', ' 115200']
-        self.set_a = wx.ComboBox(self, -1, pos=(130, 117), size=(80, 30), value=' COM3',
+        self.set_a = wx.ComboBox(self, -1, pos=(130, 117), size=(80, 30), value=' COM4',
                                  choices=set_lst_a, style=wx.CB_READONLY)
         self.set_b = wx.ComboBox(self, -1, pos=(240, 117), size=(80, 30), value=' 9600',
                                  choices=set_lst_b, style=wx.CB_READONLY)
@@ -182,6 +182,7 @@ class initFrame(wx.Frame):
             return
         if self.term:
             self.play_pre(event)
+        if self.term:
             self.thread.start()
             time.sleep(2)
             self.player.start()
@@ -215,7 +216,18 @@ class initFrame(wx.Frame):
         self.ev_lst = sorted(self.ev_lst)
         span = self.ev_lst[-1][0] / self.beat
         print('play_pre.4')
-        self.serial = serial.Serial("COM4", 9600, timeout=0.5)  # zhushi
+        com = (self.set_a.GetValue()).strip()
+        fre = int((self.set_b.GetValue()).strip())
+        try:
+            self.serial = serial.Serial(com, fre, timeout=0.5)  # zhushi
+        except serial.serialutil.SerialException:
+            cap = '传感器串口错误'
+            meg = '请选择正确的串口，并保证开发板连接正常'
+            dlg = wx.MessageDialog(parent=None, caption=cap, message=meg, style=wx.YES_DEFAULT)
+            if dlg.ShowModal() == wx.ID_YES:
+                self.Close(True)
+                self.term = True
+            return
         self.thread = threading.Thread(target=self.mon, args=(span,))
         self.player = threading.Thread(target=self.play_music, args=())
         print('play_pre.5')
